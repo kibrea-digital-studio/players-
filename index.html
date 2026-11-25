@@ -1,0 +1,3128 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="theme-color" content="#0f0f0f">
+    <title>Kibrea Offline YouTube — অফলাইন ভিডিও ও অডিও প্লেয়ার</title>
+    <style>
+        :root {
+            --bg-dark: #0f0f0f;
+            --bg-surface: #1e1e1e;
+            --bg-surface-hover: #2c2c2c;
+            --border-color: #2e2e2e;
+            --yt-red: #ff0000;
+            --yt-red-dark: #cc0000;
+            --text-primary: #f1f1f1;
+            --text-secondary: #aaaaaa;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Bengali", Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            user-select: none;
+            padding-bottom: 64px;
+        }
+        body.watching-mode {
+            padding-bottom: 0;
+            height: 100dvh;
+            overflow: hidden;
+        }
+        @media (min-width: 1024px) {
+            body.watching-mode {
+                height: auto;
+                overflow-y: auto;
+                padding-bottom: 32px;
+            }
+        }
+
+        .hidden { display: none !important; }
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+
+        /* Top Header matching screenshot */
+        .app-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 52px;
+            background: rgba(15, 15, 15, 0.96);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(46, 46, 46, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 14px;
+            z-index: 40;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: inherit;
+            text-align: left;
+        }
+
+        .yt-badge-icon {
+            background: var(--yt-red);
+            width: 32px;
+            height: 22px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(255, 0, 0, 0.45);
+            flex-shrink: 0;
+        }
+
+        .brand-text-stack {
+            display: flex;
+            flex-direction: column;
+            line-height: 1;
+        }
+        .brand-sub {
+            font-size: 10px;
+            font-weight: 600;
+            color: #aaaaaa;
+            margin-bottom: 2px;
+        }
+        .brand-title {
+            font-size: 19px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+            color: #ffffff;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .header-pill-status {
+            background: rgba(255, 0, 0, 0.16);
+            border: 1px solid rgba(255, 0, 0, 0.45);
+            color: #ff6b6b;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 6px 11px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            min-width: 44px;
+            min-height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .icon-btn:active, .icon-btn:hover { background: var(--bg-surface-hover); }
+
+        .main-container {
+            padding-top: 96px;
+            width: 100%;
+            max-width: 1160px;
+            margin: 0 auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Filter Bar */
+        .chips-bar {
+            border-bottom: 1px solid rgba(46, 46, 46, 0.65);
+            padding: 10px 14px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .chips-scroll {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .chips-scroll::-webkit-scrollbar { display: none; }
+
+        .chip-btn {
+            background: var(--bg-surface);
+            color: var(--text-primary);
+            border: 1px solid transparent;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .chip-btn svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            color: #aaaaaa;
+        }
+        .chip-btn.active {
+            background: #ffffff;
+            color: #0f0f0f;
+        }
+        .chip-btn.active svg {
+            color: var(--yt-red);
+        }
+
+        .feed-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+            padding: 14px;
+        }
+        @media (min-width: 640px) {
+            .feed-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (min-width: 1024px) {
+            .feed-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 52px 20px 32px;
+        }
+        .empty-icon-circle {
+            width: 78px;
+            height: 78px;
+            border-radius: 50%;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--yt-red);
+            margin-bottom: 16px;
+        }
+        .empty-state h2 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+        .empty-state p {
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            max-width: 360px;
+            line-height: 1.55;
+            margin-bottom: 22px;
+        }
+        .btn-group-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            width: 100%;
+            max-width: 360px;
+        }
+        .primary-pill-btn {
+            flex: 1;
+            min-width: 145px;
+            min-height: 44px;
+            background: var(--yt-red);
+            color: #fff;
+            border: none;
+            padding: 11px 16px;
+            border-radius: 999px;
+            font-size: 12.5px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            cursor: pointer;
+        }
+        .primary-pill-btn:active { background: var(--yt-red-dark); }
+        .secondary-pill-btn {
+            flex: 1;
+            min-width: 145px;
+            min-height: 44px;
+            background: var(--bg-surface);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 11px 16px;
+            border-radius: 999px;
+            font-size: 12.5px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            cursor: pointer;
+        }
+
+        /* Video Cards */
+        .video-card {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(46, 46, 46, 0.7);
+            background: #141414;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .video-card:hover { background: #1a1a1a; }
+        .thumb-box {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #171717;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .thumb-img { width: 100%; height: 100%; object-fit: cover; }
+        .thumb-fallback {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1f1f1f 0%, #111111 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            color: #777;
+        }
+        .duration-tag {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.86);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+        .card-progress-track {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3.5px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .card-progress-fill { height: 100%; background: var(--yt-red); }
+        .card-meta { display: flex; align-items: flex-start; gap: 11px; padding: 11px 12px 13px; }
+        .channel-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--yt-red);
+            font-weight: 700;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+        .card-text-col { flex: 1; min-width: 0; }
+        .card-title { font-size: 14px; font-weight: 600; line-height: 1.35; margin-bottom: 5px; }
+        .card-sub-stats {
+            font-size: 11.5px;
+            color: var(--text-secondary);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Watch View: Fixed Top Player + Scrollable Lower Functions & Playlist on Mobile */
+        #view-watch:not(.hidden) {
+            height: calc(100dvh - 96px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        @media (min-width: 1024px) {
+            #view-watch:not(.hidden) {
+                height: auto;
+                display: block;
+                overflow: visible;
+            }
+        }
+        .watch-layout {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .player-column {
+            flex-shrink: 0;
+        }
+        .watch-scroll-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+        @media (min-width: 1024px) {
+            .watch-layout {
+                display: grid;
+                grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+                grid-template-rows: auto 1fr;
+                column-gap: 24px;
+                padding: 16px 20px;
+                align-items: start;
+            }
+            .player-column {
+                grid-column: 1;
+                grid-row: 1;
+            }
+            .watch-scroll-body {
+                display: contents;
+            }
+        }
+        .player-container {
+            position: relative;
+            z-index: 30;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000000;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid rgba(46, 46, 46, 0.7);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+        }
+        @media (min-width: 1024px) {
+            .player-container { border-radius: 14px; border: 1px solid rgba(46, 46, 46, 0.7); }
+        }
+        .player-container video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        .player-container video.fit-cover { object-fit: cover; }
+
+        .controls-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 48%, rgba(0,0,0,0.35) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 10px 12px;
+            z-index: 20;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .controls-overlay.faded { opacity: 0; }
+        .controls-overlay.faded .player-top-bar,
+        .controls-overlay.faded .player-bottom-bar,
+        .controls-overlay.faded .glass-side-nav-btn {
+            pointer-events: none !important;
+        }
+
+        .seek-ripple-zone {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            pointer-events: none;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .seek-ripple-zone.left { left: 0; border-radius: 0 999px 999px 0; }
+        .seek-ripple-zone.right { right: 0; border-radius: 999px 0 0 999px; }
+        .seek-ripple-pill {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 10px 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 11px;
+            font-weight: 600;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+        }
+
+        .player-top-bar { display: flex; align-items: center; justify-content: space-between; pointer-events: auto; }
+        .player-top-right { display: flex; align-items: center; gap: 6px; }
+        .ctrl-chip-btn {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.82);
+            min-height: 34px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .ctrl-chip-btn:hover { background: rgba(255, 255, 255, 0.16); }
+        .ctrl-round-btn {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.82);
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .ctrl-round-btn:hover { background: rgba(255, 255, 255, 0.16); }
+        .ctrl-round-btn.active-indigo {
+            border-color: rgba(165, 180, 252, 0.45);
+            color: #e0e7ff;
+            background: rgba(99, 102, 241, 0.25);
+        }
+        .sleep-live-badge {
+            background: rgba(99, 102, 241, 0.25);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            border: 1px solid rgba(165, 180, 252, 0.3);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+        .player-center-row {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+        .glass-side-nav-btn {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.82);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.12s;
+        }
+        .glass-side-nav-btn:hover { background: rgba(255, 255, 255, 0.16); }
+        .glass-side-nav-btn:active { transform: scale(0.94); }
+        .player-bottom-bar { display: flex; flex-direction: column; gap: 6px; pointer-events: auto; }
+        .time-readout {
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        input[type="range"].yt-scrubber {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.32);
+            outline: none;
+            cursor: pointer;
+        }
+        input[type="range"].yt-scrubber::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--yt-red);
+            cursor: pointer;
+        }
+
+        .player-modal-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(12, 12, 12, 0.94);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 18px;
+            z-index: 28;
+        }
+        .audio-pulse-circle {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--yt-red);
+            margin-bottom: 10px;
+        }
+
+        .watch-info-box { padding: 10px 14px 14px; border-bottom: 1px solid var(--border-color); }
+        .sheet-drag-handle { width: 40px; height: 4px; border-radius: 999px; background: #3a3a3a; margin: 0 auto 10px; }
+        @media (min-width: 1024px) {
+            .watch-info-box { grid-column: 1; grid-row: 2; border-bottom: none; padding: 14px 0; }
+            .sheet-drag-handle { display: none; }
+        }
+        .watch-title { font-size: 16px; font-weight: 700; line-height: 1.38; margin-bottom: 6px; }
+        .watch-stats-row { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
+        .action-pills-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .action-pills-row::-webkit-scrollbar { display: none; }
+        .action-pill {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            min-height: 40px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .action-pill.fav-active { background: var(--yt-red); border-color: var(--yt-red); color: #fff; }
+        .action-pill.bg-active { background: rgba(16, 185, 129, 0.16); border-color: rgba(16, 185, 129, 0.5); color: #6ee7b7; }
+        .action-pill.sleep-active { background: rgba(79, 70, 229, 0.22); border-color: rgba(129, 140, 248, 0.65); color: #c7d2fe; }
+
+        .up-next-section { padding: 12px 14px 36px; }
+        @media (min-width: 1024px) {
+            .up-next-section { grid-column: 2; grid-row: 1 / span 2; padding: 0; max-height: calc(100dvh - 116px); overflow-y: auto; }
+        }
+        .section-heading {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+        .compact-video-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 11px;
+            padding: 7px 6px;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            cursor: pointer;
+        }
+        .compact-video-row.active-playing {
+            background: rgba(255, 0, 0, 0.12);
+            border-color: rgba(255, 0, 0, 0.45);
+        }
+        .compact-thumb {
+            position: relative;
+            width: 130px;
+            aspect-ratio: 16 / 9;
+            background: var(--bg-surface);
+            border-radius: 8px;
+            overflow: hidden;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .compact-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .compact-meta { flex: 1; min-width: 0; }
+        .compact-title { font-size: 13px; font-weight: 600; line-height: 1.35; margin-bottom: 4px; }
+        .compact-sub { font-size: 11.5px; color: var(--text-secondary); }
+
+        .library-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .library-card-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .danger-outline-btn {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            color: #f87171;
+            min-height: 40px;
+            padding: 6px 13px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .dev-credit-footer {
+            margin: 24px 14px 18px;
+            padding: 15px 14px;
+            background: rgba(30, 30, 30, 0.65);
+            border: 1px solid rgba(46, 46, 46, 0.85);
+            border-radius: 14px;
+            text-align: center;
+            line-height: 1.55;
+        }
+        .dev-credit-label { font-size: 10.5px; color: #888888; }
+        .dev-credit-studio { font-size: 13px; font-weight: 700; color: #e5e5e5; margin-top: 2px; }
+        .dev-credit-sub { font-size: 11px; color: #9ca3af; }
+        .dev-credit-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #60a5fa;
+            text-decoration: none;
+            padding: 5px 12px;
+            border-radius: 999px;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.28);
+        }
+
+        .mini-player {
+            position: fixed;
+            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            left: 12px;
+            right: 12px;
+            max-width: 680px;
+            margin: 0 auto;
+            height: 56px;
+            background: rgba(30, 30, 30, 0.96);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            z-index: 42;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+        }
+        .mini-player-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+            cursor: pointer;
+        }
+        .mini-thumb {
+            width: 64px;
+            height: 38px;
+            background: #000;
+            border-radius: 5px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+        .top-nav {
+            position: fixed;
+            top: 52px;
+            left: 0;
+            right: 0;
+            height: 44px;
+            background: rgba(15, 15, 15, 0.96);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(46, 46, 46, 0.75);
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            align-items: center;
+            padding: 0 6px;
+            z-index: 40;
+        }
+        .nav-tab {
+            position: relative;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .nav-tab span { font-size: 11px; font-weight: 500; }
+        .nav-tab.active { color: #ffffff; }
+        .nav-tab.active span { font-weight: 700; }
+        .nav-tab.active::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 14px;
+            right: 14px;
+            height: 2px;
+            border-radius: 999px;
+            background: var(--yt-red);
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.78);
+            backdrop-filter: blur(4px);
+            z-index: 50;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        @media (min-width: 600px) { .modal-backdrop { align-items: center; padding: 16px; } }
+        .bottom-sheet {
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border-color);
+            border-radius: 22px 22px 0 0;
+            padding: 16px 16px 24px;
+            width: 100%;
+            max-width: 440px;
+        }
+        @media (min-width: 600px) { .bottom-sheet { border-radius: 18px; border: 1px solid var(--border-color); } }
+        .sheet-handle { width: 38px; height: 4px; background: #444; border-radius: 999px; margin: 0 auto 12px; }
+        .sleep-option-btn {
+            width: 100%;
+            min-height: 44px;
+            background: var(--bg-dark);
+            border: 1px solid transparent;
+            color: var(--text-primary);
+            padding: 11px 14px;
+            border-radius: 11px;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 7px;
+            cursor: pointer;
+        }
+        .sleep-option-btn.selected { border-color: var(--yt-red); background: rgba(255, 0, 0, 0.1); font-weight: 700; }
+
+        .search-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-dark);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            padding: 10px 12px;
+        }
+        .search-bar-row { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+        .search-input {
+            flex: 1;
+            min-height: 44px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 9px 15px;
+            border-radius: 999px;
+            font-size: 13.5px;
+            outline: none;
+        }
+
+        .settings-card {
+            background: #121212;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .settings-row-btn {
+            width: 100%;
+            background: #121212;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        .settings-seg-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 9px;
+        }
+        .settings-seg-btn {
+            min-height: 38px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-surface);
+            color: #cccccc;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .settings-seg-btn.active {
+            background: var(--yt-red);
+            border-color: var(--yt-red);
+            color: #ffffff;
+        }
+        .settings-seg-btn.active-white {
+            background: #ffffff;
+            border-color: #ffffff;
+            color: #000000;
+        }
+        .toggle-track {
+            width: 42px;
+            height: 24px;
+            border-radius: 999px;
+            background: #333333;
+            padding: 2px;
+            display: inline-flex;
+            align-items: center;
+            flex-shrink: 0;
+            transition: background 0.15s;
+        }
+        .toggle-track.on-green { background: #10b981; justify-content: flex-end; }
+        .toggle-track.on-red { background: var(--yt-red); justify-content: flex-end; }
+        .toggle-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ffffff;
+        }
+        .speed-grid-5 {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            margin-top: 9px;
+        }
+        .speed-pill-btn {
+            min-height: 34px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-surface);
+            color: #cccccc;
+            font-size: 11.5px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .speed-pill-btn.active {
+            background: var(--yt-red);
+            border-color: var(--yt-red);
+            color: #ffffff;
+        }
+
+        .toast-banner {
+            position: fixed;
+            bottom: 72px;
+            left: 50%;
+            transform: translateX(-50%) translateY(90px);
+            background: #282828;
+            color: #fff;
+            border: 1px solid #3f3f3f;
+            padding: 9px 16px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            z-index: 60;
+            opacity: 0;
+            transition: all 0.25s ease;
+        }
+        .toast-banner.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    </style>
+<script src="/_aistudio-iframe.js?v=29045eb3"></script></head>
+<body>
+
+    <input type="file" id="localFileInput" accept="video/*,audio/*" multiple class="hidden">
+
+    <!-- Top Header -->
+    <header class="app-header">
+        <button type="button" class="brand-logo" onclick="navigateBottom('home')">
+            <div class="yt-badge-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#ffffff"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+            </div>
+            <div class="brand-text-stack">
+                <span class="brand-sub">Kibrea Offline</span>
+                <span class="brand-title">YouTube</span>
+            </div>
+        </button>
+
+        <div class="header-actions">
+            <button id="headerAudioBadge" class="header-pill-status hidden" onclick="restoreFromMiniPlayer()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                <span data-i18n="audioActive">অডিও চালু</span>
+            </button>
+            <button class="icon-btn" onclick="openSearchModal()" aria-label="Search">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </button>
+            <button class="icon-btn" onclick="openSettingsModal()" aria-label="Settings">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Top Navigation Tabs -->
+    <nav class="top-nav" aria-label="Main Navigation">
+        <button class="nav-tab active" data-nav="home" onclick="navigateBottom('home')">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5 3 9.5V21h6v-6h6v6h6V9.5L12 2.5z"/></svg>
+            <span data-i18n="navHome">হোম</span>
+        </button>
+        <button class="nav-tab" data-nav="tiktok" onclick="navigateBottom('tiktok')">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 4.2 7.2 9a2.2 2.2 0 0 0 .2 4l1.1.5-1.3.7a2.2 2.2 0 0 0 2 3.9l9.3-4.8a2.2 2.2 0 0 0-.2-4l-1.1-.5 1.3-.7a2.2 2.2 0 0 0-2-3.9z"/><polygon points="10.2 9.7 14.6 12 10.2 14.3" fill="currentColor" stroke="none"/></svg>
+            <span data-i18n="navTiktok">টিকটক</span>
+        </button>
+        <button class="nav-tab" data-nav="favorites" onclick="navigateBottom('favorites')">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20.4 4.9a5.2 5.2 0 0 0-7.35 0L12 6l-1.05-1.1a5.2 5.2 0 0 0-7.35 7.36L4.65 13.3 12 20.6l7.35-7.3 1.05-1.04a5.2 5.2 0 0 0 0-7.36z"/></svg>
+            <span data-i18n="navFavorites">ফেভারিট</span>
+        </button>
+        <button class="nav-tab" data-nav="library" onclick="navigateBottom('library')">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="15" height="14" rx="2"/><path d="M3 8v11a2 2 0 0 0 2 2h12"/><polygon points="11.5 7.5 16 10 11.5 12.5" fill="currentColor" stroke="none"/></svg>
+            <span data-i18n="navLibrary">লাইব্রেরি</span>
+        </button>
+    </nav>
+
+    <main class="main-container">
+        <!-- HOME VIEW -->
+        <section id="view-home" class="view-section">
+            <div class="chips-bar">
+                <div class="chips-scroll">
+                    <button class="chip-btn active" id="chip-all" onclick="setDurationFilter('all')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                        <span data-i18n="chipAll">সব</span>
+                    </button>
+                    <button class="chip-btn" id="chip-tiktok" onclick="setDurationFilter('tiktok')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                        <span data-i18n="chipTiktok">টিকটক (&lt;২মি.)</span>
+                    </button>
+                    <button class="chip-btn" id="chip-song" onclick="setDurationFilter('song')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                        <span data-i18n="chipSong">ভিডিও গান (&lt;৭মি.)</span>
+                    </button>
+                    <button class="chip-btn" id="chip-natok" onclick="setDurationFilter('natok')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+                        <span data-i18n="chipNatok">নাটক (&lt;১ঘ.)</span>
+                    </button>
+                    <button class="chip-btn" id="chip-movie" onclick="setDurationFilter('movie')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                        <span data-i18n="chipMovie">মুভি (১ঘ+)</span>
+                    </button>
+                    <button class="chip-btn" id="chip-audio" onclick="setDurationFilter('audio')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+                        <span data-i18n="chipAudio">অডিও</span>
+                    </button>
+                    <button class="chip-btn" id="chip-fav" onclick="setDurationFilter('fav')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.4 4.9a5.2 5.2 0 0 0-7.35 0L12 6l-1.05-1.1a5.2 5.2 0 0 0-7.35 7.36L4.65 13.3 12 20.6l7.35-7.3 1.05-1.04a5.2 5.2 0 0 0 0-7.36z"/></svg>
+                        <span data-i18n="chipFav">পছন্দের</span>
+                    </button>
+                </div>
+                <div id="quickAddBar" class="hidden" style="display:flex;gap:8px;">
+                    <button class="chip-btn" style="background:#ff0000;color:#fff;" onclick="openGalleryPicker()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <span data-i18n="addFromGallery">গ্যালারি থেকে যোগ করুন</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="homeRelinkBanner" class="hidden" style="margin:12px 14px 0;padding:11px 14px;border-radius:12px;border:1px solid rgba(56,189,248,0.42);background:rgba(56,189,248,0.1);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">
+                <span id="homeRelinkBannerText" style="font-size:12px;color:#e0f2fe;">সংরক্ষিত ফাইল গ্যালারি থেকে ১ ক্লিকে লিংক করুন</span>
+                <button class="chip-btn" style="background:#38bdf8;color:#000;border-radius:999px;font-weight:700;" onclick="openGalleryPicker()" data-i18n="relinkGallery">গ্যালারি থেকে লিংক</button>
+            </div>
+
+            <div id="videoFeedContainer" class="feed-grid"></div>
+
+            <div id="emptyFeedState" class="empty-state">
+                <div class="empty-icon-circle">
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </div>
+                <h2 data-i18n="emptyTitle">গ্যালারি থেকে ভিডিও ও অডিও যোগ করুন</h2>
+                <p data-i18n="emptyDesc">কোনো ক্যাশ বা ডাবল কপি ছাড়াই ভিডিও সরাসরি আপনার গ্যালারি থেকে চলবে এবং আপনার দেখার হিস্ট্রি ও ফেভারিট স্থায়ীভাবে জমা থাকবে।</p>
+                <div class="btn-group-stack">
+                    <button class="primary-pill-btn" onclick="openGalleryPicker()" data-i18n="addFromGallery">গ্যালারি থেকে যোগ করুন</button>
+                </div>
+            </div>
+
+            <footer class="dev-credit-footer">
+                <div class="dev-credit-label">Developed &amp; Maintained by</div>
+                <div class="dev-credit-studio">Kibrea Digital Studio</div>
+                <div class="dev-credit-sub">Mobile Servicing &amp; Tech Solutions</div>
+                <div class="dev-credit-sub">Moshang Bazar, Uzirpur, Barishal</div>
+                <a href="https://www.facebook.com/share/1MpouoXEeN/" target="_blank" rel="noopener noreferrer" class="dev-credit-link">Facebook Page</a>
+            </footer>
+        </section>
+
+        <!-- WATCH / PLAYER VIEW -->
+        <section id="view-watch" class="view-section hidden">
+            <div class="watch-layout">
+                <div class="player-column">
+                    <div class="player-container" id="playerWrapper" onclick="handleStageSingleTap(event)">
+                        <video id="mainVideo" playsinline webkit-playsinline preload="metadata"></video>
+                        <audio id="bgAudio" preload="metadata" class="hidden"></audio>
+
+                        <div id="seekRippleLeft" class="seek-ripple-zone left hidden">
+                            <div class="seek-ripple-pill">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                <span id="seekRippleLeftText">-১০ সে.</span>
+                            </div>
+                        </div>
+                        <div id="seekRippleRight" class="seek-ripple-zone right hidden">
+                            <div class="seek-ripple-pill">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                                <span id="seekRippleRightText">+১০ সে.</span>
+                            </div>
+                        </div>
+
+                        <div id="playbackErrorOverlay" class="player-modal-overlay hidden" onclick="event.stopPropagation()">
+                            <h4 style="font-size:14px;font-weight:700;margin-bottom:4px;" data-i18n="unsupportedFormat">এই ফাইল ফরম্যাটটি সাপোর্ট করছে না</h4>
+                            <p style="font-size:11.5px;color:#aaa;margin-bottom:14px;" data-i18n="unsupportedHint">MP4, WebM বা MP3 ফাইল সবচেয়ে ভালো চলে।</p>
+                            <button class="primary-pill-btn" style="flex:none;padding:9px 20px;" onclick="playNextVideo()" data-i18n="playNextFile">পরবর্তী ফাইল চালান</button>
+                        </div>
+
+                        <div id="audioOnlyOverlay" class="player-modal-overlay hidden">
+                            <div class="audio-pulse-circle">
+                                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                            </div>
+                            <h3 id="audioOnlyTitle" class="truncate" style="font-size:14px;font-weight:700;max-width:85%;">অডিও মোড চালু আছে</h3>
+                            <p style="font-size:11.5px;color:#aaa;margin-top:4px;" data-i18n="audioModeOnBanner">স্ক্রিন বন্ধ বা অ্যাপ মিনিমাইজ থাকলেও অডিও চলবে</p>
+                            <button id="backToVideoBtn" class="secondary-pill-btn" style="flex:none;margin-top:14px;padding:8px 18px;" onclick="event.stopPropagation();toggleAudioMode()" data-i18n="backToVideo">ভিডিওতে ফিরে যান</button>
+                        </div>
+
+                        <div id="sleepPausedOverlay" class="player-modal-overlay hidden" onclick="event.stopPropagation()">
+                            <h4 style="font-size:14px;font-weight:700;margin-bottom:4px;" data-i18n="sleepExpiredTitle">স্লিপ টাইমার শেষ হয়েছে</h4>
+                            <p style="font-size:11.5px;color:#aaa;margin-bottom:14px;" data-i18n="sleepExpiredDesc">নির্ধারিত সময় শেষ হওয়ায় প্লেব্যাক পজ করা হয়েছে।</p>
+                            <button class="primary-pill-btn" style="flex:none;padding:9px 22px;" onclick="dismissSleepPausedOverlay()" data-i18n="resume">চালিয়ে যান</button>
+                        </div>
+
+                        <div id="playerControlsOverlay" class="controls-overlay">
+                            <div class="player-top-bar" onclick="event.stopPropagation()">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <button class="ctrl-round-btn" onclick="minimizeToMiniPlayer()" title="Minimize">
+                                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                    </button>
+                                    <button id="sleepActiveBadge" class="sleep-live-badge hidden" onclick="openSleepTimerModal()">
+                                        <span id="sleepBadgeText">স্লিপ: ১৫:০০</span>
+                                    </button>
+                                </div>
+                                <div class="player-top-right">
+                                    <button id="sleepTopBtn" class="ctrl-round-btn" onclick="openSleepTimerModal()" title="Sleep Timer">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                                    </button>
+                                    <button id="speedBtn" class="ctrl-chip-btn" onclick="cyclePlaybackSpeed()">1x</button>
+                                    <button class="ctrl-round-btn" onclick="toggleAudioMode()" title="Audio Mode">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                                    </button>
+                                    <button class="ctrl-round-btn" onclick="toggleFullscreen()" title="Fullscreen">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="player-center-row">
+                                <button class="glass-side-nav-btn" onclick="event.stopPropagation();playPrevVideo()" aria-label="Previous video">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                                </button>
+                                <button class="glass-side-nav-btn" onclick="event.stopPropagation();playNextVideo()" aria-label="Next video">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                                </button>
+                            </div>
+
+                            <div class="player-bottom-bar" onclick="event.stopPropagation()">
+                                <div class="time-readout tabular-nums">
+                                    <div>
+                                        <span id="currentTimeDisplay">0:00</span>
+                                        <span style="color:rgba(255,255,255,0.4);"> / </span>
+                                        <span id="durationDisplay" style="color:rgba(255,255,255,0.7);">0:00</span>
+                                    </div>
+                                </div>
+                                <input type="range" id="videoProgressBar" class="yt-scrubber" value="0" min="0" max="100" step="0.1" oninput="seekVideo(this.value)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="watch-scroll-body">
+                    <div class="watch-info-box">
+                        <div class="sheet-drag-handle"></div>
+                        <h1 id="watchTitle" class="watch-title">ভিডিও শিরোনাম</h1>
+                        <div id="watchStatsLine" class="watch-stats-row">০ বার দেখা</div>
+                        <div class="action-pills-row">
+                            <button id="watchFavBtn" class="action-pill" onclick="toggleManualFavoriteCurrent()">
+                                <span id="favBtnText">ফেভারিট</span>
+                            </button>
+                            <button id="watchBgPlayBtn" class="action-pill bg-active" onclick="toggleBackgroundPlaySetting()">
+                                <span id="bgPlayBtnText">ব্যাকগ্রাউন্ড অডিও: চালু</span>
+                            </button>
+                            <button id="watchSleepPill" class="action-pill" onclick="openSleepTimerModal()">
+                                <span id="watchSleepPillText">স্লিপ টাইমার</span>
+                            </button>
+                            <button class="action-pill" onclick="toggleAudioMode()" data-i18n="audioMode">অডিও মোড</button>
+                            <button class="action-pill" onclick="playPrevVideo()" data-i18n="prevShort">ব্যাক</button>
+                            <button class="action-pill" onclick="playNextVideo()" data-i18n="nextShort">নেক্সট</button>
+                        </div>
+                    </div>
+
+                    <div class="up-next-section">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                            <div class="section-heading" style="margin-bottom:0;" id="playlistHeading">প্লেলিস্ট · ভিডিও ও অডিও</div>
+                            <span style="font-size:11px;color:#777;" data-i18n="dragListHint">উপরে-নিচে টেনে দেখুন</span>
+                        </div>
+                        <div id="recommendedFeed"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAVORITES VIEW -->
+        <section id="view-favorites" class="view-section hidden" style="padding:14px;">
+            <div style="margin-bottom:12px;">
+                <h2 style="font-size:16px;font-weight:700;" data-i18n="favTitle">অটো ফেভারিট ও পছন্দের তালিকা</h2>
+                <p style="font-size:12px;color:var(--text-secondary);margin-top:3px;" data-i18n="favDesc">৭০% এর বেশি দেখা বা একাধিকবার প্লে করা ফাইল স্বয়ংক্রিয়ভাবে এখানে যুক্ত হয়।</p>
+            </div>
+            <div id="favoritesVideoGrid"></div>
+        </section>
+
+        <!-- LIBRARY VIEW -->
+        <section id="view-library" class="view-section hidden" style="padding:14px;">
+            <div class="library-card">
+                <div class="library-card-header">
+                    <div>
+                        <h2 style="font-size:15px;font-weight:700;" data-i18n="libraryTitle">লাইব্রেরি ও স্টোরেজ</h2>
+                        <p id="librarySummaryText" style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">মোট ০ টি ফাইল</p>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="chip-btn" onclick="openSettingsModal()" data-i18n="settings">সেটিংস</button>
+                        <button class="danger-outline-btn" onclick="openConfirmModal()" data-i18n="clearAll">সব মুছুন</button>
+                    </div>
+                </div>
+
+                <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.28);border-radius:12px;padding:11px 12px;margin-bottom:13px;">
+                    <div style="font-size:12px;font-weight:700;color:#6ee7b7;" data-i18n="zeroCacheTitle">সরাসরি গ্যালারি প্লেব্যাক (কোনো ফাইল কপি নেই)</div>
+                    <div style="font-size:11px;color:#aaa;margin-top:3px;line-height:1.45;" data-i18n="zeroCacheDesc">ভিডিও সিলেক্ট করার পর অ্যাপের ভেতরে বা ক্যাশে কোনো ফিজিক্যাল ফাইল বা ডাবল কপি তৈরি করা হয় না। সব হিস্ট্রি ও পছন্দের তালিকা স্থায়ীভাবে সংরক্ষিত থাকে।</div>
+                </div>
+
+                <div id="libRelinkBanner" class="hidden" style="margin-bottom:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(56,189,248,0.42);background:rgba(56,189,248,0.1);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;">
+                    <span id="libRelinkBannerText" style="font-size:11.5px;color:#e0f2fe;">সংরক্ষিত ফাইল গ্যালারি থেকে পুনরায় লিংক করুন</span>
+                    <button class="chip-btn" style="background:#38bdf8;color:#000;border-radius:999px;font-weight:700;" onclick="openGalleryPicker()" data-i18n="relinkGallery">গ্যালারি থেকে লিংক</button>
+                </div>
+
+                <button class="primary-pill-btn" style="width:100%;border-radius:11px;padding:11px 14px;" onclick="openGalleryPicker()" data-i18n="addFromGallery">গ্যালারি থেকে যোগ করুন</button>
+            </div>
+
+            <div class="section-heading" data-i18n="listedFiles">তালিকাভুক্ত সকল ফাইল</div>
+            <div id="libraryVideoGrid"></div>
+
+            <footer class="dev-credit-footer" style="margin:24px 0 8px;">
+                <div class="dev-credit-label">Developed &amp; Maintained by</div>
+                <div class="dev-credit-studio">Kibrea Digital Studio</div>
+                <div class="dev-credit-sub">Mobile Servicing &amp; Tech Solutions</div>
+                <div class="dev-credit-sub">Moshang Bazar, Uzirpur, Barishal</div>
+                <a href="https://www.facebook.com/share/1MpouoXEeN/" target="_blank" rel="noopener noreferrer" class="dev-credit-link">Facebook Page</a>
+            </footer>
+        </section>
+    </main>
+
+    <!-- Floating Mini-Player -->
+    <div id="miniPlayerBar" class="mini-player hidden">
+        <div class="mini-player-left" onclick="restoreFromMiniPlayer()">
+            <div class="mini-thumb">
+                <img id="miniPlayerThumb" src="" class="hidden" alt="">
+                <svg id="miniPlayerIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+                <div id="miniPlayerTitle" class="truncate" style="font-size:12px;font-weight:700;">ভিডিও চলছে...</div>
+                <div style="font-size:10.5px;color:#aaa;" data-i18n="tapToExpand">ট্যাপ করে বড় করুন</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+            <button class="icon-btn" onclick="togglePlay()" aria-label="Play or Pause">
+                <svg id="miniPlaySvg" width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+            </button>
+            <button class="icon-btn" onclick="closeMiniPlayer()" aria-label="Close">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div id="searchModal" class="search-overlay hidden">
+        <div class="search-bar-row">
+            <button class="icon-btn" onclick="closeSearchModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <input type="text" id="searchInput" class="search-input" placeholder="ভিডিও বা অডিওর নাম লিখে খুঁজুন..." oninput="handleSearchInput(this.value)">
+        </div>
+        <div id="searchResultsContainer" style="overflow-y:auto;flex:1;padding-top:8px;"></div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-backdrop hidden" onclick="if(event.target===this) closeSettingsModal()">
+        <div class="bottom-sheet" style="max-height:86dvh;display:flex;flex-direction:column;">
+            <div class="sheet-handle"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <h3 style="font-size:15.5px;font-weight:700;" data-i18n="settingsTitle">অ্যাপ সেটিংস</h3>
+                <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
+            </div>
+            <div style="overflow-y:auto;padding-right:2px;">
+                <!-- Language Switch: Bangla <-> English -->
+                <div class="settings-card">
+                    <div style="font-size:12.5px;font-weight:700;" data-i18n="languageLabel">ভাষা (Language)</div>
+                    <div style="font-size:11px;color:#999;margin-top:2px;" data-i18n="languageDesc">অ্যাপের সকল লেখা বাংলা বা ইংরেজিতে দেখুন</div>
+                    <div class="settings-seg-grid">
+                        <button class="settings-seg-btn" id="langBtnBn" onclick="setAppLanguage('bn')">বাংলা</button>
+                        <button class="settings-seg-btn" id="langBtnEn" onclick="setAppLanguage('en')">English</button>
+                    </div>
+                </div>
+
+                <!-- Background Audio -->
+                <button class="settings-row-btn" onclick="toggleBackgroundPlaySetting(); syncSettingsModalUI();">
+                    <div>
+                        <div style="font-size:12.5px;font-weight:700;" data-i18n="bgAudioSettingTitle">ব্যাকগ্রাউন্ড অডিও প্লেব্যাক</div>
+                        <div style="font-size:11px;color:#999;margin-top:2px;" data-i18n="bgAudioSettingDesc">অ্যাপ মিনিমাইজ থাকলেও অডিও চলবে</div>
+                    </div>
+                    <span id="settingBgTrack" class="toggle-track on-green"><span class="toggle-thumb"></span></span>
+                </button>
+
+                <!-- Auto-Play Next -->
+                <button class="settings-row-btn" onclick="toggleAutoPlayNext(); syncSettingsModalUI();">
+                    <div>
+                        <div style="font-size:12.5px;font-weight:700;" data-i18n="autoPlayNextTitle">পরবর্তী ভিডিও অটো-প্লে</div>
+                        <div style="font-size:11px;color:#999;margin-top:2px;" data-i18n="autoPlayNextDesc">ভিডিও শেষ হলে পরেরটি স্বয়ংক্রিয়ভাবে চলবে</div>
+                    </div>
+                    <span id="settingAutoNextTrack" class="toggle-track on-red"><span class="toggle-thumb"></span></span>
+                </button>
+
+                <!-- Video Fit Mode -->
+                <div class="settings-card">
+                    <div style="font-size:12.5px;font-weight:700;" data-i18n="aspectRatioTitle">ভিডিও স্ক্রিন ফিট</div>
+                    <div style="font-size:11px;color:#999;margin-top:2px;" data-i18n="aspectRatioDesc">প্লেয়ারে ভিডিওর আকার নির্ধারণ করুন</div>
+                    <div class="settings-seg-grid">
+                        <button class="settings-seg-btn" id="fitBtnContain" onclick="setVideoFit('contain')" data-i18n="aspectFit">ফিট (Fit)</button>
+                        <button class="settings-seg-btn" id="fitBtnCover" onclick="setVideoFit('cover')" data-i18n="aspectFill">জুম ফিল (Fill)</button>
+                    </div>
+                </div>
+
+                <!-- Playback Speed -->
+                <div class="settings-card">
+                    <div style="font-size:12.5px;font-weight:700;" data-i18n="speedSettingTitle">প্লেব্যাক স্পিড</div>
+                    <div class="speed-grid-5">
+                        <button class="speed-pill-btn" data-speed-val="0.5" onclick="setSpeedDirect(0.5)">0.5x</button>
+                        <button class="speed-pill-btn" data-speed-val="1" onclick="setSpeedDirect(1)">1x</button>
+                        <button class="speed-pill-btn" data-speed-val="1.25" onclick="setSpeedDirect(1.25)">1.25x</button>
+                        <button class="speed-pill-btn" data-speed-val="1.5" onclick="setSpeedDirect(1.5)">1.5x</button>
+                        <button class="speed-pill-btn" data-speed-val="2" onclick="setSpeedDirect(2)">2x</button>
+                    </div>
+                </div>
+
+                <!-- Sleep Timer shortcut -->
+                <button class="settings-row-btn" onclick="closeSettingsModal(); openSleepTimerModal();">
+                    <div style="font-size:12.5px;font-weight:700;" data-i18n="sleepSettingTitle">স্লিপ টাইমার</div>
+                    <span id="settingSleepVal" style="font-size:12px;font-weight:600;color:#a5b4fc;">বন্ধ</span>
+                </button>
+
+                <!-- Clear Watch History -->
+                <button class="settings-row-btn" onclick="clearWatchHistoryOnly()">
+                    <div>
+                        <div style="font-size:12.5px;font-weight:700;" data-i18n="clearHistoryBtn">দেখার হিস্ট্রি মুছুন</div>
+                        <div style="font-size:11px;color:#999;margin-top:2px;" data-i18n="clearHistoryDesc">লাইব্রেরি রেখে শুধু দেখার ইতিহাস মুছবে</div>
+                    </div>
+                    <span style="color:#aaa;font-size:13px;">⌫</span>
+                </button>
+
+                <!-- Reset All -->
+                <button class="danger-outline-btn" style="width:100%;" onclick="closeSettingsModal(); openConfirmModal();" data-i18n="clearAllBtn">সম্পূর্ণ লাইব্রেরি ও ডেটা মুছুন</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sleep Timer Modal -->
+    <div id="sleepTimerModal" class="modal-backdrop hidden" onclick="if(event.target===this) closeSleepTimerModal()">
+        <div class="bottom-sheet">
+            <div class="sheet-handle"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <h3 style="font-size:15px;font-weight:700;" data-i18n="sleepTimer">স্লিপ টাইমার</h3>
+                <button class="icon-btn" onclick="closeSleepTimerModal()">✕</button>
+            </div>
+            <p style="font-size:11.5px;color:var(--text-secondary);margin-bottom:12px;" data-i18n="sleepDesc">নির্ধারিত সময় পর প্লেব্যাক স্বয়ংক্রিয়ভাবে পজ হয়ে যাবে।</p>
+            <div>
+                <button class="sleep-option-btn" data-sleep-opt="off" onclick="setSleepTimer('off')"><span data-i18n="sleepOff">বন্ধ (Off)</span><span class="sleep-check hidden" style="color:#ff0000;">✓</span></button>
+                <button class="sleep-option-btn" data-sleep-opt="10" onclick="setSleepTimer(10)"><span data-i18n="sleep10">১০ মিনিট</span><span class="sleep-check hidden" style="color:#ff0000;">✓</span></button>
+                <button class="sleep-option-btn" data-sleep-opt="15" onclick="setSleepTimer(15)"><span data-i18n="sleep15">১৫ মিনিট</span><span class="sleep-check hidden" style="color:#ff0000;">✓</span></button>
+                <button class="sleep-option-btn" data-sleep-opt="20" onclick="setSleepTimer(20)"><span data-i18n="sleep20">২০ মিনিট</span><span class="sleep-check hidden" style="color:#ff0000;">✓</span></button>
+                <button class="sleep-option-btn" data-sleep-opt="30" onclick="setSleepTimer(30)"><span data-i18n="sleep30">৩০ মিনিট</span><span class="sleep-check hidden" style="color:#ff0000;">✓</span></button>
+                <button class="sleep-option-btn" data-sleep-opt="45" onclick="setSleepTimer(45)"><span data-i18n="sleep45">৪৫ মিনিট</span><span class="sleep-check hidden" style="color:#ff0000;">✓</span></button>
+                <button class="sleep-option-btn" data-sleep-opt="60" onclick="setSleepTimer(60)"><span data-i18n="sleep60">৬০ মিনিট</span><span class="sleep-check hidden" style="color:#ff0000;">✓</span></button>
+                <button class="sleep-option-btn" data-sleep-opt="end" onclick="setSleepTimer('end')"><span data-i18n="sleepEndOpt">ভিডিও শেষ হলে</span><span class="sleep-check hidden" style="color:#ff0000;">✓</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Clear Modal -->
+    <div id="confirmModal" class="modal-backdrop hidden" onclick="if(event.target===this) closeConfirmModal()">
+        <div class="bottom-sheet" style="border-radius:18px;max-width:340px;margin:auto;">
+            <h3 style="font-size:15px;font-weight:700;margin-bottom:6px;" data-i18n="confirmClearTitle">সব ডেটা মুছে ফেলবেন?</h3>
+            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;" data-i18n="confirmClearDesc">ডেটাবেজে সংরক্ষিত সকল ফাইল ও দেখার ইতিহাস স্থায়ীভাবে মুছে যাবে।</p>
+            <div style="display:flex;justify-content:flex-end;gap:8px;">
+                <button class="secondary-pill-btn" style="flex:none;min-width:80px;padding:8px 14px;" onclick="closeConfirmModal()" data-i18n="cancel">বাতিল</button>
+                <button class="primary-pill-btn" style="flex:none;min-width:95px;padding:8px 16px;" onclick="executeClearAllData()" data-i18n="confirmDelete">মুছে ফেলুন</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast-banner">বার্তা</div>
+
+    <script>
+        /*
+         * ANDROID APK BRIDGE CONTRACT (must be implemented in the Android WebView host):
+         * 1) Expose @JavascriptInterface object named AndroidMediaBridge.
+         * 2) pickMedia(requestId, allowMultiple): launch ACTION_OPEN_DOCUMENT with CATEGORY_OPENABLE,
+         *    wildcard MIME type and EXTRA_MIME_TYPES for video and audio; set ALLOW_MULTIPLE and
+         *    FLAG_GRANT_READ_URI_PERMISSION | FLAG_GRANT_PERSISTABLE_URI_PERMISSION.
+         * 3) On result, call takePersistableUriPermission(uri, FLAG_GRANT_READ_URI_PERMISSION)
+         *    for each returned content:// URI, then invoke
+         *    webView.evaluateJavascript("window.onAndroidMediaPicked(requestId, JSON.stringify(items))", null).
+         *    Each item includes uri, displayName, mimeType, size, lastModified, permissionGranted.
+         * 4) hasReadPermission(uri) returns a boolean by checking persisted URI permissions.
+         * 5) Never return filesystem paths or transient cache paths. Keep URI grants across app restarts.
+         * HTML browser fallback uses <input type=file>; persistent relinking requires the native bridge.
+         */
+        // --- IndexedDB Media & Android SAF Persistent URI Storage (v3) ---
+        const DB_NAME = 'kibrea_offline_media_v1';
+        const DB_VERSION = 3;
+        const STORE_NAME = 'media_items';
+        const DIR_STORE_NAME = 'dir_handles';
+        let dbInstance = null;
+
+        function openMediaDb() {
+            if (dbInstance) return Promise.resolve(dbInstance);
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, DB_VERSION);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                        store.createIndex('addedAt', 'addedAt', { unique: false });
+                    }
+                    if (!db.objectStoreNames.contains(DIR_STORE_NAME)) {
+                        db.createObjectStore(DIR_STORE_NAME, { keyPath: 'key' });
+                    }
+                };
+                req.onsuccess = () => { dbInstance = req.result; resolve(dbInstance); };
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function toCleanStoredRecord(item) {
+            const kind = item.fileHandle
+                ? 'handle'
+                : (item.nativeUri && item.storageKind === 'android-content-uri' ? 'android-content-uri'
+                : (item.nativeUri && item.storageKind === 'native-path' ? 'native-path' : 'direct-uri'));
+            return {
+                id: item.id,
+                title: item.title,
+                fileName: item.fileName,
+                sourcePath: item.sourcePath || item.fileName,
+                nativeUri: item.nativeUri || undefined,
+                mimeType: item.mimeType || 'video/mp4',
+                mediaKind: item.mediaKind || 'video',
+                sizeBytes: item.sizeBytes || 0,
+                sizeLabel: item.sizeLabel || item.size || formatBytes(item.sizeBytes),
+                durationSeconds: item.durationSeconds || 0,
+                durationLabel: item.durationLabel || item.duration || '0:00',
+                thumbnailDataUrl: item.thumbnailDataUrl !== undefined ? item.thumbnailDataUrl : (item.thumbnail || null),
+                storageKind: kind,
+                fileHandle: item.fileHandle || undefined,
+                dirHandleKey: item.dirHandleKey || undefined,
+                addedAt: item.addedAt || Date.now()
+            };
+        }
+
+        async function dbGetAll() {
+            const db = await openMediaDb();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const req = store.getAll();
+                const validRecords = [];
+                req.onsuccess = () => {
+                    const items = req.result || [];
+                    items.forEach(item => {
+                        if (!item || !item.id || !item.fileName) {
+                            if (item && item.id) store.delete(item.id);
+                            return;
+                        }
+                        if (item.blob !== undefined || !item.storageKind) {
+                            const cleaned = toCleanStoredRecord(item);
+                            store.put(cleaned);
+                            validRecords.push(cleaned);
+                        } else {
+                            validRecords.push(item);
+                        }
+                    });
+                    validRecords.sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+                };
+                tx.oncomplete = () => resolve(validRecords);
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function dbGetAllDirs() {
+            const db = await openMediaDb();
+            return new Promise((resolve) => {
+                if (!db.objectStoreNames.contains(DIR_STORE_NAME)) { resolve([]); return; }
+                const tx = db.transaction(DIR_STORE_NAME, 'readonly');
+                const req = tx.objectStore(DIR_STORE_NAME).getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => resolve([]);
+            });
+        }
+
+        async function dbSaveDir(record) {
+            const db = await openMediaDb();
+            return new Promise((resolve) => {
+                const tx = db.transaction(DIR_STORE_NAME, 'readwrite');
+                tx.objectStore(DIR_STORE_NAME).put(record);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => resolve();
+            });
+        }
+
+        async function dbSave(record) {
+            if (!record || !record.id || !record.fileName) return;
+            const cleanRecord = toCleanStoredRecord(record);
+            const db = await openMediaDb();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).put(cleanRecord);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+
+        async function dbPatch(id, patch) {
+            const db = await openMediaDb();
+            return new Promise((resolve) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                const getReq = store.get(id);
+                getReq.onsuccess = () => {
+                    if (getReq.result) store.put({ ...getReq.result, ...patch });
+                };
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => resolve();
+            });
+        }
+
+        async function dbDelete(id) {
+            const db = await openMediaDb();
+            return new Promise((resolve) => {
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).delete(id);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => resolve();
+            });
+        }
+
+        async function dbClear() {
+            const db = await openMediaDb();
+            return new Promise((resolve) => {
+                const stores = db.objectStoreNames.contains(DIR_STORE_NAME) ? [STORE_NAME, DIR_STORE_NAME] : [STORE_NAME];
+                const tx = db.transaction(stores, 'readwrite');
+                tx.objectStore(STORE_NAME).clear();
+                if (db.objectStoreNames.contains(DIR_STORE_NAME)) tx.objectStore(DIR_STORE_NAME).clear();
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => resolve();
+            });
+        }
+
+        // --- App State ---
+        let localVideos = [];
+        const objectUrlMap = new Map();
+        let currentVideoIndex = -1;
+        let activeDurationFilter = 'all';
+        let activeTab = 'home';
+        let pendingPlayAfterRelinkId = null;
+
+        async function ensurePersistentStorage() {
+            try {
+                if (navigator.storage && typeof navigator.storage.persist === 'function') {
+                    await navigator.storage.persist();
+                }
+            } catch (e) {}
+        }
+
+        const SETTINGS_KEY = 'kibrea_app_settings_v1';
+        let appSettings = { language: 'bn', autoPlayNext: true, videoFit: 'contain' };
+        try {
+            const rawSet = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+            if (rawSet) {
+                appSettings = {
+                    language: rawSet.language === 'en' ? 'en' : 'bn',
+                    autoPlayNext: rawSet.autoPlayNext !== undefined ? Boolean(rawSet.autoPlayNext) : true,
+                    videoFit: rawSet.videoFit === 'cover' ? 'cover' : 'contain'
+                };
+            }
+        } catch (e) {}
+
+        function saveAppSettings() {
+            try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(appSettings)); } catch (e) {}
+        }
+
+        const I18N = {
+            bn: {
+                audioActive: 'অডিও চালু', navHome: 'হোম', navTiktok: 'টিকটক', navFavorites: 'ফেভারিট', navLibrary: 'লাইব্রেরি',
+                chipAll: 'সব', chipTiktok: 'টিকটক (<২মি.)', chipSong: 'ভিডিও গান (<৭মি.)', chipNatok: 'নাটক (<১ঘ.)', chipMovie: 'মুভি (১ঘ+)', chipAudio: 'অডিও', chipFav: 'পছন্দের',
+                addFromGallery: 'গ্যালারি থেকে যোগ করুন', relinkGallery: 'গ্যালারি থেকে লিংক',
+                emptyTitle: 'গ্যালারি থেকে ভিডিও ও অডিও যোগ করুন',
+                emptyDesc: 'কোনো ক্যাশ বা ডাবল কপি ছাড়াই ভিডিও সরাসরি আপনার গ্যালারি থেকে চলবে এবং আপনার দেখার হিস্ট্রি ও ফেভারিট স্থায়ীভাবে জমা থাকবে।',
+                unsupportedFormat: 'এই ফাইল ফরম্যাটটি সাপোর্ট করছে না', unsupportedHint: 'MP4, WebM বা MP3 ফাইল সবচেয়ে ভালো চলে।', playNextFile: 'পরবর্তী ফাইল চালান',
+                audioModeOnBanner: 'অডিও মোড চালু — স্ক্রিন বন্ধ বা অ্যাপ মিনিমাইজ থাকলেও অডিও চলবে', backToVideo: 'ভিডিওতে ফিরে যান',
+                sleepExpiredTitle: 'স্লিপ টাইমার শেষ হয়েছে', sleepExpiredDesc: 'নির্ধারিত সময় শেষ হওয়ায় প্লেব্যাক পজ করা হয়েছে।', resume: 'চালিয়ে যান',
+                next: 'পরবর্তী', nextShort: 'নেক্সট', prevShort: 'ব্যাক', audioMode: 'অডিও মোড', dragListHint: 'উপরে-নিচে টেনে দেখুন',
+                favTitle: 'অটো ফেভারিট ও পছন্দের তালিকা', favDesc: '৭০% এর বেশি দেখা বা একাধিকবার প্লে করা ফাইল স্বয়ংক্রিয়ভাবে এখানে যুক্ত হয়।',
+                libraryTitle: 'লাইব্রেরি ও স্টোরেজ', settings: 'সেটিংস', clearAll: 'সব মুছুন',
+                zeroCacheTitle: 'সরাসরি গ্যালারি প্লেব্যাক (কোনো ফাইল কপি নেই)',
+                zeroCacheDesc: 'ভিডিও সিলেক্ট করার পর অ্যাপের ভেতরে বা ক্যাশে কোনো ফিজিক্যাল ফাইল বা ডাবল কপি তৈরি করা হয় না। সব হিস্ট্রি ও পছন্দের তালিকা স্থায়ীভাবে সংরক্ষিত থাকে।',
+                listedFiles: 'তালিকাভুক্ত সকল ফাইল', tapToExpand: 'ট্যাপ করে বড় করুন',
+                settingsTitle: 'অ্যাপ সেটিংস', languageLabel: 'ভাষা (Language)', languageDesc: 'অ্যাপের সকল লেখা বাংলা বা ইংরেজিতে দেখুন',
+                bgAudioSettingTitle: 'ব্যাকগ্রাউন্ড অডিও প্লেব্যাক', bgAudioSettingDesc: 'অ্যাপ মিনিমাইজ থাকলেও অডিও চলবে',
+                autoPlayNextTitle: 'পরবর্তী ভিডিও অটো-প্লে', autoPlayNextDesc: 'ভিডিও শেষ হলে পরেরটি স্বয়ংক্রিয়ভাবে চলবে',
+                aspectRatioTitle: 'ভিডিও স্ক্রিন ফিট', aspectRatioDesc: 'প্লেয়ারে ভিডিওর আকার নির্ধারণ করুন', aspectFit: 'ফিট (Fit)', aspectFill: 'জুম ফিল (Fill)',
+                speedSettingTitle: 'প্লেব্যাক স্পিড', sleepSettingTitle: 'স্লিপ টাইমার',
+                clearHistoryBtn: 'দেখার হিস্ট্রি মুছুন', clearHistoryDesc: 'লাইব্রেরি রেখে শুধু দেখার ইতিহাস মুছবে', clearAllBtn: 'সম্পূর্ণ লাইব্রেরি ও ডেটা মুছুন',
+                sleepTimer: 'স্লিপ টাইমার', sleepDesc: 'নির্ধারিত সময় পর প্লেব্যাক স্বয়ংক্রিয়ভাবে পজ হয়ে যাবে।',
+                sleepOff: 'বন্ধ (Off)', sleep10: '১০ মিনিট', sleep15: '১৫ মিনিট', sleep20: '২০ মিনিট', sleep30: '৩০ মিনিট', sleep45: '৪৫ মিনিট', sleep60: '৬০ মিনিট', sleepEndOpt: 'ভিডিও শেষ হলে',
+                confirmClearTitle: 'সব ডেটা মুছে ফেলবেন?', confirmClearDesc: 'ডেটাবেজে সংরক্ষিত সকল ফাইল ও দেখার ইতিহাস স্থায়ীভাবে মুছে যাবে।', cancel: 'বাতিল', confirmDelete: 'মুছে ফেলুন',
+                searchPlaceholder: 'ভিডিও বা অডিওর নাম লিখে খুঁজুন...',
+                catTiktok: 'টিকটক', catSong: 'ভিডিও গান', catNatok: 'নাটক', catMovie: 'মুভি', catAudio: 'অডিও', catVideo: 'ভিডিও',
+                viewsSuffix: 'বার দেখা', favLabel: 'ফেভারিট', favDone: 'ফেভারিট করা আছে', bgOn: 'ব্যাকগ্রাউন্ড অডিও: চালু', bgOff: 'ব্যাকগ্রাউন্ড অডিও: বন্ধ',
+                nowPlaying: 'এখন চলছে', autoFav: '★ অটো ফেভারিট', manualFav: '♥ পছন্দের', offlineAudio: 'অফলাইন অডিও', offlineVideo: 'অফলাইন ভিডিও',
+                tapToRelink: 'গ্যালারি লিংক', noMoreFiles: 'তালিকায় কোনো ফাইল নেই।', emptyCat: 'এই ক্যাটাগরিতে কোনো ফাইল পাওয়া যায়নি।',
+                emptyFav: 'এখনো কোনো ফেভারিট ফাইল নেই।', emptyLib: 'কোনো ফাইল যোগ করা হয়নি।', noResults: 'কোনো ফলাফল পাওয়া যায়নি'
+            },
+            en: {
+                audioActive: 'Audio On', navHome: 'Home', navTiktok: 'TikTok', navFavorites: 'Favorites', navLibrary: 'Library',
+                chipAll: 'All', chipTiktok: 'TikTok (<2m)', chipSong: 'Video Song (<7m)', chipNatok: 'Natok (<1h)', chipMovie: 'Movies (1h+)', chipAudio: 'Audio', chipFav: 'Favorites',
+                addFromGallery: 'Add from Gallery', relinkGallery: 'Link from Gallery',
+                emptyTitle: 'Add Videos & Audio from Gallery',
+                emptyDesc: 'Plays directly from your gallery with zero cache copying. Watch history and favorites remain saved.',
+                unsupportedFormat: 'Unsupported media format', unsupportedHint: 'MP4, WebM or MP3 files work best.', playNextFile: 'Play Next File',
+                audioModeOnBanner: 'Audio Mode ON — Keeps playing when minimized or screen off', backToVideo: 'Back to Video',
+                sleepExpiredTitle: 'Sleep Timer Ended', sleepExpiredDesc: 'Playback paused because your timer finished.', resume: 'Resume',
+                next: 'Next', nextShort: 'Next', prevShort: 'Back', audioMode: 'Audio Mode', dragListHint: 'Scroll up & down',
+                favTitle: 'Auto Favorites & Liked', favDesc: 'Files watched over 70% or played multiple times appear here.',
+                libraryTitle: 'Library & Storage', settings: 'Settings', clearAll: 'Clear All',
+                zeroCacheTitle: 'Direct Gallery Playback (Zero File Copy)',
+                zeroCacheDesc: 'No physical files or double copies are stored in app cache. All history and favorites stay saved.',
+                listedFiles: 'All Listed Files', tapToExpand: 'Tap to expand',
+                settingsTitle: 'Settings', languageLabel: 'Language (ভাষা)', languageDesc: 'Switch app labels between Bangla and English',
+                bgAudioSettingTitle: 'Background Audio Playback', bgAudioSettingDesc: 'Keep audio playing when minimized',
+                autoPlayNextTitle: 'Auto-Play Next Video', autoPlayNextDesc: 'Automatically play next item when finished',
+                aspectRatioTitle: 'Video Screen Fit', aspectRatioDesc: 'Choose video fit inside player', aspectFit: 'Fit', aspectFill: 'Fill (Zoom)',
+                speedSettingTitle: 'Playback Speed', sleepSettingTitle: 'Sleep Timer',
+                clearHistoryBtn: 'Clear Watch History', clearHistoryDesc: 'Resets view counts without deleting library files', clearAllBtn: 'Reset Library & All Data',
+                sleepTimer: 'Sleep Timer', sleepDesc: 'Playback will automatically pause after the selected time.',
+                sleepOff: 'Off', sleep10: '10 minutes', sleep15: '15 minutes', sleep20: '20 minutes', sleep30: '30 minutes', sleep45: '45 minutes', sleep60: '60 minutes', sleepEndOpt: 'End of current file',
+                confirmClearTitle: 'Clear all data?', confirmClearDesc: 'All saved file entries and watch history will be permanently removed.', cancel: 'Cancel', confirmDelete: 'Clear All',
+                searchPlaceholder: 'Search videos or audio by name...',
+                catTiktok: 'TikTok', catSong: 'Video Song', catNatok: 'Natok', catMovie: 'Movies', catAudio: 'Audio', catVideo: 'Video',
+                viewsSuffix: 'views', favLabel: 'Favorite', favDone: 'Favorited', bgOn: 'Background Audio: ON', bgOff: 'Background Audio: OFF',
+                nowPlaying: 'Now Playing', autoFav: '★ Auto Favorite', manualFav: '♥ Liked', offlineAudio: 'Offline Audio', offlineVideo: 'Offline Video',
+                tapToRelink: 'Tap to link', noMoreFiles: 'No files in playlist.', emptyCat: 'No files found in this category.',
+                emptyFav: 'No favorite files yet.', emptyLib: 'No files added yet.', noResults: 'No matching results found'
+            }
+        };
+
+        function tr(key) { return (I18N[appSettings.language] || I18N.bn)[key] || key; }
+        function fmtNum(val) { return appSettings.language === 'bn' ? toBengaliDigits(val) : String(val); }
+
+        function applyLanguageUI() {
+            document.documentElement.lang = appSettings.language;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const k = el.getAttribute('data-i18n');
+                if (k && I18N[appSettings.language][k]) el.textContent = I18N[appSettings.language][k];
+            });
+            const si = document.getElementById('searchInput');
+            if (si) si.placeholder = tr('searchPlaceholder');
+            syncSettingsModalUI();
+            updateBgPlayButtonUI();
+            updateSleepBadgesUI();
+            if (currentVideoIndex >= 0 && localVideos[currentVideoIndex]) {
+                updateFavoriteButtonState(localVideos[currentVideoIndex].id);
+            }
+        }
+
+        let manualFavorites = [];
+        let videoWatchStats = {};
+        let sessionState = { videoId: null, currentTime: 0, isAudioMode: false, backgroundPlayEnabled: true, playbackSpeed: 1 };
+        try {
+            manualFavorites = JSON.parse(localStorage.getItem('yt_manual_favs') || '[]');
+            videoWatchStats = JSON.parse(localStorage.getItem('yt_watch_stats') || '{}');
+            const savedSession = JSON.parse(localStorage.getItem('kibrea_playback_session_v1') || 'null');
+            if (savedSession) sessionState = { ...sessionState, ...savedSession };
+        } catch (e) {}
+
+        let isAudioModeActive = Boolean(sessionState.isAudioMode);
+        let backgroundPlayEnabled = sessionState.backgroundPlayEnabled !== false;
+        let activeEngine = 'video';
+        let shouldBePlaying = false;
+        let isHandingOff = false;
+        let primedUrl = null;
+        let lastKnownTime = 0;
+
+        let controlsHideTimeout = null;
+        let sleepMode = 'off';
+        let sleepRemainingSeconds = 0;
+        let sleepIntervalId = null;
+
+        const playbackSpeeds = [0.5, 1, 1.25, 1.5, 2];
+        let currentSpeedIdx = Math.max(0, playbackSpeeds.indexOf(sessionState.playbackSpeed));
+        if (!playbackSpeeds.includes(sessionState.playbackSpeed)) currentSpeedIdx = 1;
+
+        const videoEl = document.getElementById('mainVideo');
+        const audioEl = document.getElementById('bgAudio');
+        videoEl.classList.toggle('fit-cover', appSettings.videoFit === 'cover');
+
+        document.getElementById('localFileInput').addEventListener('change', handleFilesAdded);
+
+        const videoExtRegex = /\.(mp4|mkv|webm|mov|avi|3gp|m4v|flv|wmv)$/i;
+        const audioExtRegex = /\.(mp3|m4a|aac|wav|ogg|opus|flac|weba)$/i;
+
+        function isMediaFileNameOrType(file) {
+            return (file.type && (file.type.startsWith('video/') || file.type.startsWith('audio/'))) ||
+                videoExtRegex.test(file.name) || audioExtRegex.test(file.name);
+        }
+
+        function saveSession(overrideTime) {
+            const cur = localVideos[currentVideoIndex];
+            sessionState = {
+                videoId: cur ? cur.id : null,
+                currentTime: overrideTime !== undefined ? overrideTime : lastKnownTime,
+                isAudioMode: isAudioModeActive,
+                backgroundPlayEnabled,
+                playbackSpeed: playbackSpeeds[currentSpeedIdx],
+            };
+            try { localStorage.setItem('kibrea_playback_session_v1', JSON.stringify(sessionState)); } catch (e) {}
+        }
+
+        function saveStats() {
+            try { localStorage.setItem('yt_watch_stats', JSON.stringify(videoWatchStats)); } catch (e) {}
+        }
+
+        async function queryPerm(handle) {
+            if (!handle) return 'denied';
+            try {
+                if (typeof handle.queryPermission === 'function') return await handle.queryPermission({ mode: 'read' });
+                return 'granted';
+            } catch (e) { return 'prompt'; }
+        }
+
+        async function requestPerm(handle) {
+            if (!handle) return false;
+            try {
+                if (typeof handle.queryPermission === 'function') {
+                    const c = await handle.queryPermission({ mode: 'read' });
+                    if (c === 'granted') return true;
+                }
+                if (typeof handle.requestPermission === 'function') {
+                    return (await handle.requestPermission({ mode: 'read' })) === 'granted';
+                }
+                return true;
+            } catch (e) { return false; }
+        }
+
+        // Android APK: Native bridge opens ACTION_OPEN_DOCUMENT and persists URI permission.
+        // The browser fallback remains available when the app is not running inside the Android WebView.
+        let androidPickerRequestSeq = 0;
+        let androidPickerPending = new Set();
+
+        function openGalleryPicker() {
+            const bridge = window.AndroidMediaBridge;
+            if (bridge && typeof bridge.pickMedia === 'function') {
+                const requestId = `kibrea_${Date.now()}_${++androidPickerRequestSeq}`;
+                androidPickerPending.add(requestId);
+                try {
+                    // Native contract: pickMedia(requestId, allowMultiple)
+                    bridge.pickMedia(requestId, !pendingPlayAfterRelinkId);
+                    return;
+                } catch (e) {
+                    androidPickerPending.delete(requestId);
+                    showToast('গ্যালারি খোলা যায়নি। আবার চেষ্টা করুন।');
+                }
+            }
+            document.getElementById('localFileInput').click();
+        }
+
+        // Called by Android after ACTION_OPEN_DOCUMENT returns.
+        // Each item: { uri, displayName, mimeType, size, lastModified, permissionGranted }
+        window.onAndroidMediaPicked = async function(requestId, itemsJson) {
+            if (requestId && !androidPickerPending.has(requestId)) return;
+            if (requestId) androidPickerPending.delete(requestId);
+            let items = [];
+            try { items = typeof itemsJson === 'string' ? JSON.parse(itemsJson) : (itemsJson || []); }
+            catch (e) { showToast('ফাইলের তথ্য পড়া যায়নি।'); return; }
+            if (!Array.isArray(items) || !items.length) return; // User cancelled or selected nothing.
+            await addAndroidMediaItems(items);
+        };
+
+        window.onAndroidMediaPickerCancelled = function(requestId) {
+            if (requestId) androidPickerPending.delete(requestId);
+        };
+
+        async function addAndroidMediaItems(items) {
+            await ensurePersistentStorage();
+            let addedCount = 0, relinkedCount = 0, failedCount = 0;
+            for (const item of items) {
+                const uri = String(item.uri || item.contentUri || '');
+                const fileName = String(item.displayName || item.fileName || 'Media file');
+                if (!uri || !uri.startsWith('content://')) { failedCount++; continue; }
+
+                const mimeType = String(item.mimeType || 'application/octet-stream');
+                const isAudio = mimeType.startsWith('audio/') || audioExtRegex.test(fileName);
+                const mediaKind = isAudio ? 'audio' : 'video';
+                const sizeBytes = Number(item.size || item.sizeBytes || 0);
+                const target = pendingPlayAfterRelinkId
+                    ? localVideos.find(v => v.id === pendingPlayAfterRelinkId)
+                    : null;
+                const existing = target || localVideos.find(v =>
+                    (v.nativeUri === uri) ||
+                    (v.fileName === fileName && (!sizeBytes || !v.sizeBytes || v.sizeBytes === sizeBytes))
+                );
+                const id = existing ? existing.id : `android_${btoa(unescape(encodeURIComponent(uri))).replace(/[^a-zA-Z0-9]/g, '').slice(-48) || Date.now()}`;
+                const title = existing ? existing.title : fileName.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim();
+
+                const record = {
+                    id, title, fileName, sourcePath: fileName, nativeUri: uri,
+                    mimeType, mediaKind, sizeBytes,
+                    sizeLabel: formatBytes(sizeBytes),
+                    durationSeconds: existing ? existing.durationSeconds : 0,
+                    durationLabel: existing ? existing.duration : '0:00',
+                    thumbnailDataUrl: existing ? existing.thumbnail : null,
+                    storageKind: 'android-content-uri',
+                    addedAt: existing ? existing.addedAt : Date.now() + addedCount,
+                    androidPersistedPermission: item.permissionGranted !== false
+                };
+
+                try { await dbSave(record); }
+                catch (e) { failedCount++; continue; }
+
+                const mediaObj = existing || {
+                    id, title, fileName, sourcePath: fileName, size: record.sizeLabel,
+                    sizeBytes, durationSeconds: 0, duration: '0:00',
+                    thumbnail: null, addedAt: record.addedAt, persistMetadata: true
+                };
+                const oldUrl = objectUrlMap.get(id);
+                if (oldUrl && oldUrl.startsWith('blob:')) URL.revokeObjectURL(oldUrl);
+                mediaObj.nativeUri = uri;
+                mediaObj.url = uri;
+                mediaObj.mimeType = mimeType;
+                mediaObj.mediaKind = mediaKind;
+                mediaObj.storageKind = 'android-content-uri';
+                mediaObj.size = record.sizeLabel;
+                mediaObj.sizeBytes = sizeBytes;
+                mediaObj.needsPermission = false;
+                mediaObj.needsRelink = false;
+                mediaObj.persistMetadata = true;
+                if (!existing) { localVideos.push(mediaObj); addedCount++; }
+                else { relinkedCount++; }
+                extractMetadataFromUrl(uri, mediaObj);
+            }
+            renderAllViews();
+            if (pendingPlayAfterRelinkId) {
+                const ready = localVideos.find(v => v.id === pendingPlayAfterRelinkId && v.url && !v.needsRelink);
+                if (ready) {
+                    const targetId = pendingPlayAfterRelinkId;
+                    pendingPlayAfterRelinkId = null;
+                    openWatchView(targetId);
+                }
+            }
+            const parts = [];
+            if (addedCount) parts.push(`${fmtNum(addedCount)} টি নতুন`);
+            if (relinkedCount) parts.push(`${fmtNum(relinkedCount)} টি পুনরায় লিংক`);
+            if (failedCount) parts.push(`${fmtNum(failedCount)} টি ব্যর্থ`);
+            showToast(parts.length ? parts.join(' • ') : 'ফাইলগুলো আগে থেকেই যুক্ত আছে');
+        }
+
+        function extractMetadataFromUrl(url, mediaObj) {
+            const tempEl = document.createElement(mediaObj.mediaKind === 'audio' ? 'audio' : 'video');
+            tempEl.preload = 'metadata';
+            tempEl.muted = true;
+            if (tempEl.tagName === 'VIDEO') tempEl.playsInline = true;
+            tempEl.src = url;
+            let finished = false;
+            const cleanup = () => {
+                if (finished) return;
+                finished = true;
+                tempEl.removeAttribute('src');
+                tempEl.load();
+            };
+            const timeoutId = setTimeout(cleanup, 9000);
+            tempEl.onloadedmetadata = () => {
+                if (tempEl.duration && isFinite(tempEl.duration)) {
+                    mediaObj.durationSeconds = tempEl.duration;
+                    mediaObj.duration = formatTime(tempEl.duration);
+                    dbPatch(mediaObj.id, { durationSeconds: mediaObj.durationSeconds, durationLabel: mediaObj.duration });
+                    renderAllViews();
+                }
+                if (mediaObj.mediaKind === 'audio') { clearTimeout(timeoutId); cleanup(); return; }
+                try { tempEl.currentTime = Math.min(2, (tempEl.duration || 1) * 0.15) || 0.1; }
+                catch (e) { clearTimeout(timeoutId); cleanup(); }
+            };
+            tempEl.onseeked = () => {
+                try {
+                    if (tempEl.videoWidth > 0 && tempEl.videoHeight > 0) {
+                        const canvas = document.createElement('canvas');
+                        const w = 360, h = Math.round((tempEl.videoHeight / tempEl.videoWidth) * w) || 202;
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d').drawImage(tempEl, 0, 0, w, h);
+                        mediaObj.thumbnail = canvas.toDataURL('image/jpeg', 0.72);
+                        dbPatch(mediaObj.id, { thumbnailDataUrl: mediaObj.thumbnail });
+                        renderAllViews();
+                    }
+                } catch (e) {}
+                clearTimeout(timeoutId); cleanup();
+            };
+            tempEl.onerror = () => { clearTimeout(timeoutId); cleanup(); };
+        }
+
+        // --- Hydrate Persistent Metadata & Watch Session on Boot (Zero Cached Media Blobs) ---
+        (async function hydrateOnBoot() {
+            applyLanguageUI();
+            try {
+                const records = await dbGetAll();
+                const isFileProto = window.location.protocol === 'file:';
+                const hydrated = [];
+                for (const r of records) {
+                    if (r.fileHandle) {
+                        let url = '';
+                        let needsRelink = true;
+                        try {
+                            const file = await r.fileHandle.getFile();
+                            url = URL.createObjectURL(file);
+                            objectUrlMap.set(r.id, url);
+                            needsRelink = false;
+                        } catch (e) {}
+                        if (!url && r.nativeUri && isFileProto) {
+                            url = r.nativeUri;
+                            needsRelink = false;
+                        }
+                        hydrated.push({
+                            id: r.id,
+                            title: r.title,
+                            fileName: r.fileName,
+                            sourcePath: r.sourcePath || r.fileName,
+                            nativeUri: r.nativeUri,
+                            mimeType: r.mimeType,
+                            mediaKind: r.mediaKind || 'video',
+                            url,
+                            size: r.sizeLabel || formatBytes(r.sizeBytes),
+                            sizeBytes: r.sizeBytes || 0,
+                            durationSeconds: r.durationSeconds || 0,
+                            duration: r.durationLabel || '0:00',
+                            thumbnail: r.thumbnailDataUrl || null,
+                            storageKind: r.storageKind || 'direct-uri',
+                            fileHandle: r.fileHandle,
+                            addedAt: r.addedAt,
+                            needsPermission: false,
+                            needsRelink,
+                            persistMetadata: true
+                        });
+                    } else if (r.nativeUri && r.storageKind === 'android-content-uri') {
+                        const hasPermission = !window.AndroidMediaBridge ||
+                            typeof window.AndroidMediaBridge.hasReadPermission !== 'function' ||
+                            window.AndroidMediaBridge.hasReadPermission(r.nativeUri);
+                        hydrated.push({
+                            id: r.id, title: r.title, fileName: r.fileName,
+                            sourcePath: r.sourcePath || r.fileName, nativeUri: r.nativeUri,
+                            mimeType: r.mimeType, mediaKind: r.mediaKind || 'video',
+                            url: hasPermission ? r.nativeUri : '',
+                            size: r.sizeLabel || formatBytes(r.sizeBytes), sizeBytes: r.sizeBytes || 0,
+                            durationSeconds: r.durationSeconds || 0, duration: r.durationLabel || '0:00',
+                            thumbnail: r.thumbnailDataUrl || null, storageKind: 'android-content-uri',
+                            addedAt: r.addedAt, needsPermission: !hasPermission,
+                            needsRelink: !hasPermission, persistMetadata: true
+                        });
+                    } else if (r.nativeUri && (r.storageKind === 'native-path' || isFileProto)) {
+                        hydrated.push({
+                            id: r.id,
+                            title: r.title,
+                            fileName: r.fileName,
+                            sourcePath: r.sourcePath || r.fileName,
+                            nativeUri: r.nativeUri,
+                            mimeType: r.mimeType,
+                            mediaKind: r.mediaKind || 'video',
+                            url: r.nativeUri,
+                            size: r.sizeLabel || formatBytes(r.sizeBytes),
+                            sizeBytes: r.sizeBytes || 0,
+                            durationSeconds: r.durationSeconds || 0,
+                            duration: r.durationLabel || '0:00',
+                            thumbnail: r.thumbnailDataUrl || null,
+                            storageKind: 'native-path',
+                            addedAt: r.addedAt,
+                            needsPermission: false,
+                            needsRelink: false,
+                            persistMetadata: true
+                        });
+                    } else {
+                        hydrated.push({
+                            id: r.id,
+                            title: r.title,
+                            fileName: r.fileName,
+                            sourcePath: r.sourcePath || r.fileName,
+                            nativeUri: r.nativeUri,
+                            mimeType: r.mimeType,
+                            mediaKind: r.mediaKind || 'video',
+                            url: '',
+                            size: r.sizeLabel || formatBytes(r.sizeBytes),
+                            sizeBytes: r.sizeBytes || 0,
+                            durationSeconds: r.durationSeconds || 0,
+                            duration: r.durationLabel || '0:00',
+                            thumbnail: r.thumbnailDataUrl || null,
+                            storageKind: 'direct-uri',
+                            addedAt: r.addedAt,
+                            needsPermission: false,
+                            needsRelink: true,
+                            persistMetadata: true
+                        });
+                    }
+                }
+                localVideos = hydrated;
+                if (sessionState.videoId) {
+                    const idx = localVideos.findIndex(v => v.id === sessionState.videoId);
+                    if (idx >= 0) {
+                        currentVideoIndex = idx;
+                        document.getElementById('miniPlayerBar').classList.remove('hidden');
+                        updateMiniPlayerUI();
+                    }
+                }
+                renderAllViews();
+            } catch (e) {
+                renderAllViews();
+            }
+        })();
+
+        async function resolveVideoForPlay(video) {
+            if (video.url && !video.needsRelink) {
+                if (video.storageKind === 'android-content-uri' && window.AndroidMediaBridge &&
+                    typeof window.AndroidMediaBridge.hasReadPermission === 'function' &&
+                    !window.AndroidMediaBridge.hasReadPermission(video.nativeUri)) {
+                    video.url = ''; video.needsRelink = true; video.needsPermission = true;
+                } else return true;
+            }
+            if (video.storageKind === 'android-content-uri' && video.nativeUri &&
+                window.AndroidMediaBridge && typeof window.AndroidMediaBridge.hasReadPermission === 'function' &&
+                window.AndroidMediaBridge.hasReadPermission(video.nativeUri)) {
+                video.url = video.nativeUri;
+                video.needsPermission = false; video.needsRelink = false;
+                return true;
+            }
+            if (video.fileHandle) {
+                try {
+                    const file = await video.fileHandle.getFile();
+                    const oldUrl = objectUrlMap.get(video.id);
+                    if (oldUrl) URL.revokeObjectURL(oldUrl);
+                    const url = URL.createObjectURL(file);
+                    objectUrlMap.set(video.id, url);
+                    video.url = url;
+                    video.needsPermission = false;
+                    video.needsRelink = false;
+                    renderAllViews();
+                    return true;
+                } catch (e) {}
+            }
+            pendingPlayAfterRelinkId = video.id;
+            showToast(appSettings.language === 'en' ? 'Select from Gallery to link and play' : 'ফাইলটি চালাতে গ্যালারি থেকে নির্বাচন করুন');
+            openGalleryPicker();
+            return false;
+        }
+
+        async function handleFilesAdded(event) {
+            const files = Array.from(event.target.files || []);
+            event.target.value = '';
+            if (files.length === 0) return;
+
+            const validFiles = files.filter(isMediaFileNameOrType);
+            if (validFiles.length === 0) {
+                showToast(appSettings.language === 'en' ? 'No supported video or audio files found' : 'কোনো সমর্থিত ভিডিও বা অডিও পাওয়া যায়নি');
+                return;
+            }
+
+            await ensurePersistentStorage();
+            let addedCount = 0;
+            let relinkedCount = 0;
+            const seenIds = new Set();
+
+            for (const file of validFiles) {
+                const id = `${file.name}_${file.size}_${file.lastModified}`;
+                if (seenIds.has(id)) continue;
+                seenIds.add(id);
+
+                const existing = localVideos.find(v => v.id === id || (v.fileName === file.name && v.sizeBytes === file.size));
+                if (existing) {
+                    if (!existing.url || existing.needsRelink || existing.needsPermission) {
+                        const oldUrl = objectUrlMap.get(existing.id);
+                        if (oldUrl) URL.revokeObjectURL(oldUrl);
+                        const relinkUrl = URL.createObjectURL(file);
+                        objectUrlMap.set(existing.id, relinkUrl);
+                        existing.url = relinkUrl;
+                        existing.needsPermission = false;
+                        existing.needsRelink = false;
+                        relinkedCount++;
+                    }
+                    continue;
+                }
+
+                const isAudio = (file.type && file.type.startsWith('audio/')) || audioExtRegex.test(file.name);
+                const mediaKind = isAudio ? 'audio' : 'video';
+                const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim() || file.name;
+                const sizeLabel = formatBytes(file.size);
+                const addedAt = Date.now() + addedCount;
+
+                const blobUrl = URL.createObjectURL(file);
+                objectUrlMap.set(id, blobUrl);
+                const record = {
+                    id,
+                    title: cleanTitle,
+                    fileName: file.name,
+                    sourcePath: file.name,
+                    mimeType: file.type || (isAudio ? 'audio/mpeg' : 'video/mp4'),
+                    mediaKind,
+                    sizeBytes: file.size,
+                    sizeLabel,
+                    durationSeconds: 0,
+                    durationLabel: '0:00',
+                    thumbnailDataUrl: null,
+                    storageKind: 'direct-uri',
+                    addedAt
+                };
+                try { await dbSave(record); } catch (e) {}
+
+                const videoObj = {
+                    id,
+                    title: cleanTitle,
+                    fileName: file.name,
+                    sourcePath: file.name,
+                    mimeType: record.mimeType,
+                    mediaKind,
+                    url: blobUrl,
+                    size: sizeLabel,
+                    sizeBytes: file.size,
+                    durationSeconds: 0,
+                    duration: '0:00',
+                    thumbnail: null,
+                    storageKind: 'direct-uri',
+                    addedAt,
+                    needsPermission: false,
+                    needsRelink: false,
+                    persistMetadata: true
+                };
+                localVideos.push(videoObj);
+                addedCount++;
+                extractMetadataSafely(file, videoObj);
+            }
+
+            renderAllViews();
+            if (addedCount > 0 && relinkedCount > 0) {
+                showToast(appSettings.language === 'en' ? `${addedCount} new & ${relinkedCount} re-linked` : `${fmtNum(addedCount)} টি নতুন ও ${fmtNum(relinkedCount)} টি পুনরায় লিংক হয়েছে`);
+            } else if (relinkedCount > 0) {
+                showToast(appSettings.language === 'en' ? `${relinkedCount} file(s) re-linked from Gallery` : `${fmtNum(relinkedCount)} টি ফাইল গ্যালারি থেকে পুনরায় লিংক হয়েছে`);
+            } else if (addedCount > 0) {
+                showToast(appSettings.language === 'en' ? `${addedCount} file(s) added from Gallery` : `গ্যালারি থেকে ${fmtNum(addedCount)} টি ফাইল যুক্ত হয়েছে`);
+            } else {
+                showToast(appSettings.language === 'en' ? 'Files already added' : 'ফাইলগুলো আগেই যোগ করা আছে');
+            }
+
+            if (pendingPlayAfterRelinkId) {
+                const targetId = pendingPlayAfterRelinkId;
+                const ready = localVideos.find(v => v.id === targetId && v.url && !v.needsRelink);
+                if (ready) {
+                    pendingPlayAfterRelinkId = null;
+                    openWatchView(ready.id);
+                }
+            }
+        }
+
+        function extractMetadataSafely(file, videoObj) {
+            const tempEl = document.createElement(videoObj.mediaKind === 'audio' ? 'audio' : 'video');
+            const tempUrl = URL.createObjectURL(file);
+            tempEl.preload = 'metadata';
+            tempEl.muted = true;
+            if (tempEl.tagName === 'VIDEO') tempEl.playsInline = true;
+            tempEl.src = tempUrl;
+
+            let finished = false;
+            const cleanup = () => {
+                if (finished) return;
+                finished = true;
+                tempEl.removeAttribute('src');
+                tempEl.load();
+                URL.revokeObjectURL(tempUrl);
+            };
+            const timeoutId = setTimeout(cleanup, 6500);
+
+            tempEl.onloadedmetadata = () => {
+                if (tempEl.duration && isFinite(tempEl.duration)) {
+                    videoObj.durationSeconds = tempEl.duration;
+                    videoObj.duration = formatTime(tempEl.duration);
+                    if (videoObj.persistMetadata) {
+                        dbPatch(videoObj.id, { durationSeconds: videoObj.durationSeconds, durationLabel: videoObj.duration });
+                    }
+                    renderAllViews();
+                }
+                if (videoObj.mediaKind === 'audio') {
+                    clearTimeout(timeoutId);
+                    cleanup();
+                    return;
+                }
+                try {
+                    tempEl.currentTime = Math.min(2, (tempEl.duration || 1) * 0.15) || 0.1;
+                } catch (e) {
+                    clearTimeout(timeoutId);
+                    cleanup();
+                }
+            };
+
+            tempEl.onseeked = () => {
+                try {
+                    if (tempEl.videoWidth > 0 && tempEl.videoHeight > 0) {
+                        const canvas = document.createElement('canvas');
+                        const targetW = 360;
+                        const targetH = Math.round((tempEl.videoHeight / tempEl.videoWidth) * targetW) || 202;
+                        canvas.width = targetW;
+                        canvas.height = targetH;
+                        canvas.getContext('2d').drawImage(tempEl, 0, 0, targetW, targetH);
+                        videoObj.thumbnail = canvas.toDataURL('image/jpeg', 0.72);
+                        if (videoObj.persistMetadata) {
+                            dbPatch(videoObj.id, { thumbnailDataUrl: videoObj.thumbnail });
+                        }
+                        renderAllViews();
+                    }
+                } catch (e) {}
+                clearTimeout(timeoutId);
+                cleanup();
+            };
+
+            tempEl.onerror = () => { clearTimeout(timeoutId); cleanup(); };
+        }
+
+        // --- Background Playback Dual Engine ---
+        function getActiveMediaEl() {
+            return activeEngine === 'audio' ? audioEl : videoEl;
+        }
+
+        function primeAudioForBackground(url) {
+            if (primedUrl === url) return;
+            try {
+                audioEl.src = url;
+                audioEl.muted = true;
+                const p = audioEl.play();
+                if (p !== undefined) {
+                    p.then(() => {
+                        audioEl.pause();
+                        audioEl.muted = false;
+                        primedUrl = url;
+                    }).catch(() => { audioEl.muted = false; });
+                }
+            } catch (e) { audioEl.muted = false; }
+        }
+
+        function switchEngine(target) {
+            const video = localVideos[currentVideoIndex];
+            if (!video) return;
+            const fromEl = target === 'audio' ? videoEl : audioEl;
+            const toEl = target === 'audio' ? audioEl : videoEl;
+            const t = (fromEl && isFinite(fromEl.currentTime) && fromEl.currentTime > 0) ? fromEl.currentTime : lastKnownTime;
+            const wantPlay = shouldBePlaying;
+
+            isHandingOff = true;
+            fromEl.pause();
+            isHandingOff = false;
+
+            activeEngine = target;
+            if (toEl.getAttribute('src') !== video.url) {
+                toEl.src = video.url;
+                toEl.load();
+            }
+            toEl.muted = false;
+            toEl.playbackRate = playbackSpeeds[currentSpeedIdx];
+
+            const applyAndPlay = () => {
+                toEl.removeEventListener('canplay', applyAndPlay);
+                if (t > 0) {
+                    try { toEl.currentTime = t; } catch (e) {}
+                }
+                if (wantPlay) toEl.play().catch(() => {});
+            };
+            if (toEl.readyState >= 2) applyAndPlay();
+            else toEl.addEventListener('canplay', applyAndPlay);
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            const video = localVideos[currentVideoIndex];
+            if (!video) return;
+            if (document.visibilityState === 'hidden') {
+                saveSession();
+                if (backgroundPlayEnabled && shouldBePlaying && activeEngine === 'video') {
+                    switchEngine('audio');
+                }
+            } else if (document.visibilityState === 'visible') {
+                if (!isAudioModeActive && video.mediaKind !== 'audio' && activeEngine === 'audio') {
+                    switchEngine('video');
+                }
+            }
+        });
+
+        window.addEventListener('pagehide', () => saveSession());
+
+        function syncMediaSession(video, isPlaying) {
+            if (!('mediaSession' in navigator) || !video) return;
+            try {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: video.title,
+                    artist: 'Kibrea Offline Player',
+                    album: video.mediaKind === 'audio' ? 'অফলাইন অডিও' : 'অফলাইন ভিডিও',
+                    artwork: video.thumbnail ? [{ src: video.thumbnail, sizes: '360x202', type: 'image/jpeg' }] : []
+                });
+                navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+                navigator.mediaSession.setActionHandler('play', () => {
+                    shouldBePlaying = true;
+                    getActiveMediaEl().play().catch(() => {});
+                });
+                navigator.mediaSession.setActionHandler('pause', () => {
+                    shouldBePlaying = false;
+                    getActiveMediaEl().pause();
+                });
+                navigator.mediaSession.setActionHandler('previoustrack', localVideos.length > 1 ? () => playPrevVideo() : null);
+                navigator.mediaSession.setActionHandler('nexttrack', localVideos.length > 1 ? () => playNextVideo() : null);
+                navigator.mediaSession.setActionHandler('seekbackward', (d) => skipSeconds(-(d.seekOffset || 10)));
+                navigator.mediaSession.setActionHandler('seekforward', (d) => skipSeconds(d.seekOffset || 10));
+            } catch (e) {}
+        }
+
+        function attachMediaEvents(el, engineName) {
+            el.addEventListener('loadedmetadata', () => {
+                if (activeEngine !== engineName) return;
+                const video = localVideos[currentVideoIndex];
+                if (video && el.duration && isFinite(el.duration)) {
+                    video.durationSeconds = el.duration;
+                    video.duration = formatTime(el.duration);
+                    document.getElementById('durationDisplay').textContent = video.duration;
+                    dbPatch(video.id, { durationSeconds: el.duration, durationLabel: video.duration });
+                }
+            });
+
+            el.addEventListener('timeupdate', () => {
+                if (activeEngine !== engineName || !el.duration || !isFinite(el.duration)) return;
+                const cur = el.currentTime;
+                const dur = el.duration;
+                lastKnownTime = cur;
+                document.getElementById('currentTimeDisplay').textContent = formatTime(cur);
+                document.getElementById('durationDisplay').textContent = formatTime(dur);
+                document.getElementById('videoProgressBar').value = (cur / dur) * 100;
+
+                const video = localVideos[currentVideoIndex];
+                if (video) {
+                    if (!videoWatchStats[video.id]) videoWatchStats[video.id] = { playCount: 1, maxTime: 0, lastPos: 0 };
+                    videoWatchStats[video.id].lastPos = cur;
+                    if (cur > videoWatchStats[video.id].maxTime) videoWatchStats[video.id].maxTime = cur;
+                    if (Math.floor(cur) % 3 === 0) { saveStats(); saveSession(cur); }
+                }
+            });
+
+            el.addEventListener('play', () => {
+                if (activeEngine !== engineName) return;
+                updatePlayPauseIcons(true);
+                syncMediaSession(localVideos[currentVideoIndex], true);
+                scheduleControlsHide();
+            });
+
+            el.addEventListener('pause', () => {
+                if (activeEngine !== engineName || isHandingOff) return;
+                if (engineName === 'video' && document.visibilityState === 'hidden' && backgroundPlayEnabled && shouldBePlaying) {
+                    switchEngine('audio');
+                    return;
+                }
+                updatePlayPauseIcons(false);
+                syncMediaSession(localVideos[currentVideoIndex], false);
+                showPlayerControls();
+                saveStats();
+                saveSession();
+                renderAllViews();
+            });
+
+            el.addEventListener('ended', () => {
+                if (activeEngine !== engineName) return;
+                const video = localVideos[currentVideoIndex];
+                if (video && videoWatchStats[video.id]) {
+                    videoWatchStats[video.id].maxTime = el.duration || video.durationSeconds;
+                    videoWatchStats[video.id].lastPos = 0;
+                    saveStats();
+                    renderAllViews();
+                }
+                if (sleepMode === 'end') { triggerSleepTimerExpiration(); return; }
+                if (appSettings.autoPlayNext && localVideos.length > 1) playNextVideo();
+                else shouldBePlaying = false;
+            });
+
+            el.addEventListener('error', () => {
+                if (activeEngine !== engineName) return;
+                if (currentVideoIndex >= 0) document.getElementById('playbackErrorOverlay').classList.remove('hidden');
+            });
+        }
+
+        attachMediaEvents(videoEl, 'video');
+        attachMediaEvents(audioEl, 'audio');
+
+        async function openWatchView(videoId) {
+            const idx = localVideos.findIndex(v => v.id === videoId);
+            if (idx === -1) return;
+            const video = localVideos[idx];
+            const ok = await resolveVideoForPlay(video);
+            if (!ok) return;
+            currentVideoIndex = idx;
+
+            if (!videoWatchStats[video.id]) videoWatchStats[video.id] = { playCount: 0, maxTime: 0, lastPos: 0 };
+            videoWatchStats[video.id].playCount += 1;
+            saveStats();
+
+            document.getElementById('playbackErrorOverlay').classList.add('hidden');
+            document.getElementById('sleepPausedOverlay').classList.add('hidden');
+
+            document.getElementById('watchTitle').textContent = video.title;
+            document.getElementById('audioOnlyTitle').textContent = video.title;
+            const st = getVideoStats(video);
+            document.getElementById('watchStatsLine').textContent = `${fmtNum(st.playCount)} ${tr('viewsSuffix')} • ★ ${st.rating} • ${video.size}`;
+            updateFavoriteButtonState(video.id);
+            updateBgPlayButtonUI();
+
+            switchTab('watch');
+            renderRecommendedFeed(video.id);
+            renderAllViews();
+
+            const forceAudio = video.mediaKind === 'audio' || isAudioModeActive;
+            activeEngine = forceAudio ? 'audio' : 'video';
+            document.getElementById('audioOnlyOverlay').classList.toggle('hidden', !forceAudio);
+            document.getElementById('backToVideoBtn').classList.toggle('hidden', video.mediaKind === 'audio');
+            document.getElementById('headerAudioBadge').classList.toggle('hidden', !forceAudio);
+
+            isHandingOff = true;
+            videoEl.pause();
+            audioEl.pause();
+            isHandingOff = false;
+
+            const el = getActiveMediaEl();
+            el.src = video.url;
+            el.muted = false;
+            el.playbackRate = playbackSpeeds[currentSpeedIdx];
+            el.load();
+
+            if (activeEngine === 'video' && backgroundPlayEnabled) primeAudioForBackground(video.url);
+
+            const resumeTime = (st.lastPos > 2 && (video.durationSeconds <= 0 || st.lastPos < video.durationSeconds - 4)) ? st.lastPos : 0;
+            lastKnownTime = resumeTime;
+            shouldBePlaying = true;
+
+            const onCanPlay = () => {
+                el.removeEventListener('canplay', onCanPlay);
+                if (resumeTime > 0 && isFinite(el.duration) && resumeTime < el.duration - 1) {
+                    try { el.currentTime = resumeTime; } catch (e) {}
+                }
+                el.play().catch(() => { shouldBePlaying = false; updatePlayPauseIcons(false); });
+            };
+            el.addEventListener('canplay', onCanPlay);
+            saveSession(resumeTime);
+            showPlayerControls();
+        }
+
+        let lastStageTapTime = 0;
+        let lastStageTapSide = 'left';
+        let singleTapTimer = null;
+        let rippleTimer = null;
+        let rippleTotal = 0;
+        let rippleSide = 'left';
+
+        function handleStageSingleTap(e) {
+            const wrapper = document.getElementById('playerWrapper');
+            const rect = wrapper.getBoundingClientRect();
+            const clientX = (e && typeof e.clientX === 'number') ? e.clientX : rect.left + rect.width / 2;
+            const side = (clientX - rect.left) < rect.width / 2 ? 'left' : 'right';
+            const now = Date.now();
+
+            if (now - lastStageTapTime < 280 && lastStageTapSide === side) {
+                if (singleTapTimer) { clearTimeout(singleTapTimer); singleTapTimer = null; }
+                lastStageTapTime = now;
+                skipSeconds(side === 'left' ? -10 : 10);
+                rippleTotal = (rippleTimer && rippleSide === side) ? rippleTotal + 10 : 10;
+                rippleSide = side;
+                const leftEl = document.getElementById('seekRippleLeft');
+                const rightEl = document.getElementById('seekRippleRight');
+                const unit = appSettings.language === 'en' ? 'sec' : 'সে.';
+                if (side === 'left') {
+                    rightEl.classList.add('hidden');
+                    document.getElementById('seekRippleLeftText').textContent = `-${fmtNum(rippleTotal)} ${unit}`;
+                    leftEl.classList.remove('hidden');
+                } else {
+                    leftEl.classList.add('hidden');
+                    document.getElementById('seekRippleRightText').textContent = `+${fmtNum(rippleTotal)} ${unit}`;
+                    rightEl.classList.remove('hidden');
+                }
+                clearTimeout(rippleTimer);
+                rippleTimer = setTimeout(() => {
+                    leftEl.classList.add('hidden');
+                    rightEl.classList.add('hidden');
+                    rippleTimer = null;
+                    rippleTotal = 0;
+                }, 650);
+                return;
+            }
+
+            lastStageTapTime = now;
+            lastStageTapSide = side;
+            if (singleTapTimer) clearTimeout(singleTapTimer);
+            singleTapTimer = setTimeout(() => {
+                singleTapTimer = null;
+                togglePlay();
+                showPlayerControls();
+            }, 230);
+        }
+
+        function togglePlay() {
+            const video = localVideos[currentVideoIndex];
+            if (!video) return;
+            const el = getActiveMediaEl();
+            if (!el.getAttribute('src')) {
+                openWatchView(video.id);
+                return;
+            }
+            if (el.paused) {
+                shouldBePlaying = true;
+                if (activeEngine === 'video' && backgroundPlayEnabled) primeAudioForBackground(video.url);
+                el.play().catch(() => {});
+            } else {
+                shouldBePlaying = false;
+                el.pause();
+            }
+        }
+
+        function seekVideo(percentVal) {
+            const el = getActiveMediaEl();
+            if (!el.duration || !isFinite(el.duration)) return;
+            el.currentTime = (parseFloat(percentVal) / 100) * el.duration;
+            showPlayerControls();
+        }
+
+        function skipSeconds(delta) {
+            const el = getActiveMediaEl();
+            if (!el.duration || !isFinite(el.duration)) return;
+            el.currentTime = Math.max(0, Math.min(el.duration, el.currentTime + delta));
+        }
+
+        function showPlayerControls() {
+            document.getElementById('playerControlsOverlay').classList.remove('faded');
+            scheduleControlsHide();
+        }
+
+        function scheduleControlsHide() {
+            clearTimeout(controlsHideTimeout);
+            controlsHideTimeout = setTimeout(() => {
+                if (!getActiveMediaEl().paused) document.getElementById('playerControlsOverlay').classList.add('faded');
+            }, 2800);
+        }
+
+        function setSpeedDirect(rate) {
+            const idx = playbackSpeeds.indexOf(rate);
+            if (idx >= 0) currentSpeedIdx = idx;
+            videoEl.playbackRate = rate;
+            audioEl.playbackRate = rate;
+            document.getElementById('speedBtn').textContent = `${rate}x`;
+            saveSession();
+            syncSettingsModalUI();
+            showToast(appSettings.language === 'en' ? `Playback speed: ${rate}x` : `প্লেব্যাক স্পিড: ${rate}x`);
+        }
+
+        function cyclePlaybackSpeed() {
+            currentSpeedIdx = (currentSpeedIdx + 1) % playbackSpeeds.length;
+            setSpeedDirect(playbackSpeeds[currentSpeedIdx]);
+            showPlayerControls();
+        }
+
+        function toggleAudioMode() {
+            const video = localVideos[currentVideoIndex];
+            if (!video || video.mediaKind === 'audio') {
+                showToast(appSettings.language === 'en' ? 'This is an audio file' : 'এটি একটি অডিও ফাইল');
+                return;
+            }
+            isAudioModeActive = !isAudioModeActive;
+            document.getElementById('audioOnlyOverlay').classList.toggle('hidden', !isAudioModeActive);
+            document.getElementById('headerAudioBadge').classList.toggle('hidden', !isAudioModeActive);
+            switchEngine(isAudioModeActive ? 'audio' : 'video');
+            saveSession();
+            showToast(isAudioModeActive
+                ? (appSettings.language === 'en' ? 'Audio mode active — plays with screen off' : 'অডিও মোড চালু — স্ক্রিন বন্ধ থাকলেও চলবে')
+                : (appSettings.language === 'en' ? 'Video mode active' : 'ভিডিও মোড চালু হয়েছে'));
+        }
+
+        function toggleBackgroundPlaySetting() {
+            backgroundPlayEnabled = !backgroundPlayEnabled;
+            updateBgPlayButtonUI();
+            saveSession();
+            showToast(backgroundPlayEnabled
+                ? (appSettings.language === 'en' ? 'Background audio playback enabled' : 'ব্যাকগ্রাউন্ড অডিও প্লেব্যাক চালু হয়েছে')
+                : (appSettings.language === 'en' ? 'Background playback disabled' : 'ব্যাকগ্রাউন্ড প্লেব্যাক বন্ধ করা হয়েছে'));
+        }
+
+        function updateBgPlayButtonUI() {
+            const btn = document.getElementById('watchBgPlayBtn');
+            const txt = document.getElementById('bgPlayBtnText');
+            if (btn) btn.classList.toggle('bg-active', backgroundPlayEnabled);
+            if (txt) txt.textContent = backgroundPlayEnabled ? tr('bgOn') : tr('bgOff');
+        }
+
+        function openSettingsModal() {
+            syncSettingsModalUI();
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+        function closeSettingsModal() { document.getElementById('settingsModal').classList.add('hidden'); }
+        function setAppLanguage(lang) {
+            appSettings.language = lang === 'en' ? 'en' : 'bn';
+            saveAppSettings();
+            applyLanguageUI();
+            renderAllViews();
+            showToast(appSettings.language === 'en' ? 'Language switched to English' : 'ভাষা পরিবর্তন হয়েছে: বাংলা');
+        }
+        function toggleAutoPlayNext() {
+            appSettings.autoPlayNext = !appSettings.autoPlayNext;
+            saveAppSettings();
+            showToast(appSettings.autoPlayNext
+                ? (appSettings.language === 'en' ? 'Auto-play next enabled' : 'অটো-প্লে নেক্সট চালু হয়েছে')
+                : (appSettings.language === 'en' ? 'Auto-play next disabled' : 'অটো-প্লে নেক্সট বন্ধ করা হয়েছে'));
+        }
+        function setVideoFit(fit) {
+            appSettings.videoFit = fit === 'cover' ? 'cover' : 'contain';
+            videoEl.classList.toggle('fit-cover', appSettings.videoFit === 'cover');
+            saveAppSettings();
+            syncSettingsModalUI();
+            showToast(appSettings.videoFit === 'cover' ? tr('aspectFill') : tr('aspectFit'));
+        }
+        function clearWatchHistoryOnly() {
+            videoWatchStats = {};
+            try { localStorage.removeItem('yt_watch_stats'); } catch (e) {}
+            renderAllViews();
+            showToast(appSettings.language === 'en' ? 'Watch history cleared' : 'দেখার হিস্ট্রি মুছে ফেলা হয়েছে');
+        }
+        function syncSettingsModalUI() {
+            const bn = document.getElementById('langBtnBn');
+            const en = document.getElementById('langBtnEn');
+            if (bn) bn.classList.toggle('active', appSettings.language === 'bn');
+            if (en) en.classList.toggle('active', appSettings.language === 'en');
+            const bgT = document.getElementById('settingBgTrack');
+            if (bgT) bgT.classList.toggle('on-green', backgroundPlayEnabled);
+            const anT = document.getElementById('settingAutoNextTrack');
+            if (anT) anT.classList.toggle('on-red', appSettings.autoPlayNext);
+            const fc = document.getElementById('fitBtnContain');
+            const fv = document.getElementById('fitBtnCover');
+            if (fc) fc.classList.toggle('active-white', appSettings.videoFit === 'contain');
+            if (fv) fv.classList.toggle('active-white', appSettings.videoFit === 'cover');
+            const curSpeed = playbackSpeeds[currentSpeedIdx];
+            document.querySelectorAll('.speed-pill-btn').forEach(b => {
+                b.classList.toggle('active', parseFloat(b.getAttribute('data-speed-val')) === curSpeed);
+            });
+            const sVal = document.getElementById('settingSleepVal');
+            if (sVal) {
+                sVal.textContent = sleepMode === 'off' ? tr('sleepOff') : (sleepMode === 'end' ? tr('sleepEndOpt') : `${fmtNum(sleepMode)}m`);
+            }
+        }
+
+        function toggleFullscreen() {
+            const wrapper = document.getElementById('playerWrapper');
+            if (!document.fullscreenElement) {
+                if (wrapper.requestFullscreen) wrapper.requestFullscreen().catch(() => {});
+                else if (videoEl.webkitEnterFullscreen) videoEl.webkitEnterFullscreen();
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        function playNextVideo() {
+            if (localVideos.length === 0) return;
+            openWatchView(localVideos[(currentVideoIndex + 1) % localVideos.length].id);
+        }
+
+        function playPrevVideo() {
+            if (localVideos.length === 0) return;
+            openWatchView(localVideos[(currentVideoIndex - 1 + localVideos.length) % localVideos.length].id);
+        }
+
+        // --- Views & Stats ---
+        function getVideoStats(video) {
+            const st = videoWatchStats[video.id] || { playCount: 0, maxTime: 0, lastPos: 0 };
+            const dur = video.durationSeconds || 1;
+            const completionRatio = Math.min(1, st.maxTime / dur);
+            const completionPct = Math.round(completionRatio * 100);
+            const rawScore = 3.5 + Math.min(1.0, completionRatio * 1.0) + Math.min(0.5, st.playCount * 0.15);
+            const rating = fmtNum(Math.min(5.0, rawScore).toFixed(1));
+            const isManualFav = manualFavorites.includes(video.id);
+            const isFav = isManualFav || st.playCount >= 2 || completionPct >= 70;
+            return { playCount: st.playCount, maxTime: st.maxTime, lastPos: st.lastPos, completionPct, rating, isFav, isManualFav };
+        }
+
+        function getCategoryLabelForVideo(video) {
+            if (video.mediaKind === 'audio') return tr('catAudio');
+            if (video.durationSeconds <= 0) return tr('catVideo');
+            if (video.durationSeconds < 120) return tr('catTiktok');
+            if (video.durationSeconds < 420) return tr('catSong');
+            if (video.durationSeconds < 3600) return tr('catNatok');
+            return tr('catMovie');
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById(`view-${tabName}`);
+            if (target) target.classList.remove('hidden');
+            document.body.classList.toggle('watching-mode', tabName === 'watch');
+            const miniBar = document.getElementById('miniPlayerBar');
+            if (tabName !== 'watch' && currentVideoIndex >= 0 && localVideos[currentVideoIndex]) {
+                miniBar.classList.remove('hidden');
+                updateMiniPlayerUI();
+            } else {
+                miniBar.classList.add('hidden');
+            }
+            window.scrollTo({ top: 0, behavior: 'instant' });
+        }
+
+        function navigateBottom(navKey) {
+            activeTab = navKey;
+            document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-nav') === navKey));
+            if (navKey === 'tiktok') { switchTab('home'); setDurationFilter('tiktok'); return; }
+            if (navKey === 'home') { switchTab('home'); renderHomeFeed(); return; }
+            if (navKey === 'favorites') { switchTab('favorites'); renderFavorites(); return; }
+            if (navKey === 'library') { switchTab('library'); renderLibrary(); return; }
+        }
+
+        function setDurationFilter(filterKey) {
+            activeDurationFilter = filterKey;
+            document.querySelectorAll('.chips-scroll .chip-btn').forEach(btn => btn.classList.remove('active'));
+            const chip = document.getElementById(`chip-${filterKey}`);
+            if (chip) chip.classList.add('active');
+            renderHomeFeed();
+        }
+
+        function renderAllViews() {
+            const needRelink = localVideos.filter(v => v.needsRelink || v.needsPermission).length;
+            const homeRelink = document.getElementById('homeRelinkBanner');
+            const libRelink = document.getElementById('libRelinkBanner');
+            if (homeRelink) {
+                homeRelink.classList.toggle('hidden', needRelink === 0);
+                const hrt = document.getElementById('homeRelinkBannerText');
+                if (hrt) hrt.textContent = appSettings.language === 'en'
+                    ? `Re-link ${needRelink} saved file(s) from Gallery in 1 tap`
+                    : `সংরক্ষিত ${fmtNum(needRelink)} টি ফাইল গ্যালারি থেকে ১ ক্লিকে লিংক করুন`;
+            }
+            if (libRelink) {
+                libRelink.classList.toggle('hidden', needRelink === 0);
+                const lrt = document.getElementById('libRelinkBannerText');
+                if (lrt) lrt.textContent = appSettings.language === 'en'
+                    ? `Re-link ${needRelink} saved file(s) from Gallery`
+                    : `${fmtNum(needRelink)} টি সংরক্ষিত ফাইল গ্যালারি থেকে পুনরায় লিংক করুন`;
+            }
+            renderHomeFeed();
+            renderFavorites();
+            renderLibrary();
+            if (currentVideoIndex >= 0 && localVideos[currentVideoIndex]) renderRecommendedFeed(localVideos[currentVideoIndex].id);
+        }
+
+        function renderHomeFeed() {
+            const container = document.getElementById('videoFeedContainer');
+            const emptyState = document.getElementById('emptyFeedState');
+            const quickAdd = document.getElementById('quickAddBar');
+            container.innerHTML = '';
+
+            if (localVideos.length === 0) {
+                emptyState.classList.remove('hidden');
+                quickAdd.classList.add('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+            quickAdd.classList.remove('hidden');
+
+            const filtered = localVideos.filter(v => {
+                if (activeDurationFilter === 'tiktok') return v.mediaKind === 'video' && v.durationSeconds > 0 && v.durationSeconds < 120;
+                if (activeDurationFilter === 'song') return v.mediaKind === 'video' && v.durationSeconds >= 120 && v.durationSeconds < 420;
+                if (activeDurationFilter === 'natok') return v.mediaKind === 'video' && v.durationSeconds >= 420 && v.durationSeconds < 3600;
+                if (activeDurationFilter === 'movie') return v.mediaKind === 'video' && v.durationSeconds >= 3600;
+                if (activeDurationFilter === 'audio') return v.mediaKind === 'audio';
+                if (activeDurationFilter === 'fav') return getVideoStats(v).isFav;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:56px 16px;font-size:12.5px;color:#aaa;">${tr('emptyCat')}</div>`;
+                return;
+            }
+
+            filtered.forEach(video => {
+                const stats = getVideoStats(video);
+                const catLabel = getCategoryLabelForVideo(video);
+                const card = document.createElement('article');
+                card.className = 'video-card';
+                card.onclick = () => openWatchView(video.id);
+                card.innerHTML = `
+                    <div class="thumb-box">
+                        ${video.thumbnail ? `<img src="${video.thumbnail}" class="thumb-img" alt="">` : `<div class="thumb-fallback"><span style="font-size:11px;">${video.mediaKind === 'audio' ? tr('offlineAudio') : tr('offlineVideo')}</span></div>`}
+                        ${(video.needsRelink || video.needsPermission) ? `<span style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.82);border:1px solid rgba(56,189,248,0.5);color:#7dd3fc;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;">${tr('tapToRelink')}</span>` : ''}
+                        <span class="duration-tag">${video.duration}</span>
+                        ${stats.completionPct > 0 ? `<div class="card-progress-track"><div class="card-progress-fill" style="width:${stats.completionPct}%;"></div></div>` : ''}
+                    </div>
+                    <div class="card-meta">
+                        <div class="channel-avatar">${video.mediaKind === 'audio' ? '♪' : '▶'}</div>
+                        <div class="card-text-col">
+                            <h3 class="card-title line-clamp-2">${escapeHtml(video.title)}</h3>
+                            <div class="card-sub-stats tabular-nums">
+                                <span>${catLabel}</span><span>·</span>
+                                <span style="color:#fbbf24;font-weight:600;">★ ${stats.rating}</span><span>·</span>
+                                <span>${fmtNum(stats.playCount)} ${tr('viewsSuffix')}</span><span>·</span>
+                                <span>${video.size}</span>
+                                ${stats.isFav ? `<span>·</span><span style="color:#ff6b6b;font-weight:600;">${tr('favLabel')}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
+
+        function updatePlayPauseIcons(isPlaying) {
+            const playSvg = `<polygon points="6 4 20 12 6 20 6 4"></polygon>`;
+            const pauseSvg = `<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>`;
+            const mini = document.getElementById('miniPlaySvg');
+            if (mini) mini.innerHTML = isPlaying ? pauseSvg : playSvg;
+        }
+
+        function openSleepTimerModal() {
+            document.querySelectorAll('.sleep-option-btn').forEach(btn => {
+                const sel = btn.getAttribute('data-sleep-opt') === String(sleepMode);
+                btn.classList.toggle('selected', sel);
+                const c = btn.querySelector('.sleep-check');
+                if (c) c.classList.toggle('hidden', !sel);
+            });
+            document.getElementById('sleepTimerModal').classList.remove('hidden');
+        }
+        function closeSleepTimerModal() { document.getElementById('sleepTimerModal').classList.add('hidden'); }
+        function setSleepTimer(option) {
+            clearInterval(sleepIntervalId); sleepIntervalId = null; sleepMode = option; closeSleepTimerModal();
+            if (option === 'off') { sleepRemainingSeconds = 0; updateSleepBadgesUI(); showToast(appSettings.language === 'en' ? 'Sleep timer off' : 'স্লিপ টাইমার বন্ধ করা হয়েছে'); return; }
+            if (option === 'end') { sleepRemainingSeconds = 0; updateSleepBadgesUI(); showToast(appSettings.language === 'en' ? 'Stops after file ends' : 'ভিডিও শেষ হলে স্বয়ংক্রিয়ভাবে পজ হবে'); return; }
+            sleepRemainingSeconds = option * 60; updateSleepBadgesUI();
+            showToast(appSettings.language === 'en' ? `Sleep timer: ${option} min` : `${fmtNum(option)} মিনিটের স্লিপ টাইমার চালু হয়েছে`);
+            sleepIntervalId = setInterval(() => {
+                if (sleepRemainingSeconds > 0) { sleepRemainingSeconds -= 1; updateSleepBadgesUI(); }
+                if (sleepRemainingSeconds <= 0) triggerSleepTimerExpiration();
+            }, 1000);
+        }
+        function triggerSleepTimerExpiration() {
+            clearInterval(sleepIntervalId); sleepIntervalId = null; sleepMode = 'off'; sleepRemainingSeconds = 0; updateSleepBadgesUI();
+            shouldBePlaying = false; videoEl.pause(); audioEl.pause();
+            document.getElementById('sleepPausedOverlay').classList.remove('hidden');
+            showToast(tr('sleepExpiredTitle'));
+        }
+        function dismissSleepPausedOverlay() {
+            document.getElementById('sleepPausedOverlay').classList.add('hidden');
+            shouldBePlaying = true;
+            getActiveMediaEl().play().catch(() => {});
+        }
+        function updateSleepBadgesUI() {
+            const topBadge = document.getElementById('sleepActiveBadge');
+            const badgeText = document.getElementById('sleepBadgeText');
+            const pill = document.getElementById('watchSleepPill');
+            const pillText = document.getElementById('watchSleepPillText');
+            const topBtn = document.getElementById('sleepTopBtn');
+            if (!topBadge || !pill) return;
+            if (sleepMode === 'off') {
+                topBadge.classList.add('hidden'); pill.classList.remove('sleep-active'); pillText.textContent = tr('sleepTimer'); topBtn.classList.remove('active-indigo');
+            } else if (sleepMode === 'end') {
+                topBadge.classList.remove('hidden'); badgeText.textContent = tr('sleepEndOpt'); pill.classList.add('sleep-active'); pillText.textContent = tr('sleepEndOpt'); topBtn.classList.add('active-indigo');
+            } else {
+                const fmt = fmtNum(formatTime(sleepRemainingSeconds));
+                const pref = appSettings.language === 'en' ? 'Sleep:' : 'স্লিপ:';
+                topBadge.classList.remove('hidden'); badgeText.textContent = `${pref} ${fmt}`; pill.classList.add('sleep-active'); pillText.textContent = `${pref} ${fmt}`; topBtn.classList.add('active-indigo');
+            }
+        }
+
+        function minimizeToMiniPlayer() { switchTab(activeTab === 'tiktok' ? 'home' : activeTab); }
+        async function restoreFromMiniPlayer() {
+            if (currentVideoIndex >= 0 && localVideos[currentVideoIndex]) {
+                const video = localVideos[currentVideoIndex];
+                const ok = await resolveVideoForPlay(video);
+                if (!ok) return;
+                const el = getActiveMediaEl();
+                if (!el.getAttribute('src')) openWatchView(video.id);
+                else switchTab('watch');
+            }
+        }
+        function closeMiniPlayer() {
+            shouldBePlaying = false; isHandingOff = true;
+            videoEl.pause(); videoEl.removeAttribute('src'); videoEl.load();
+            audioEl.pause(); audioEl.removeAttribute('src'); audioEl.load();
+            isHandingOff = false; currentVideoIndex = -1; isAudioModeActive = false;
+            document.getElementById('headerAudioBadge').classList.add('hidden');
+            document.getElementById('miniPlayerBar').classList.add('hidden');
+            saveSession(0);
+        }
+        function updateMiniPlayerUI() {
+            const video = localVideos[currentVideoIndex];
+            if (!video) return;
+            document.getElementById('miniPlayerTitle').textContent = video.title;
+            const thumb = document.getElementById('miniPlayerThumb');
+            const icon = document.getElementById('miniPlayerIcon');
+            if (video.thumbnail) { thumb.src = video.thumbnail; thumb.classList.remove('hidden'); icon.classList.add('hidden'); }
+            else { thumb.classList.add('hidden'); icon.classList.remove('hidden'); }
+        }
+
+        function toggleManualFavoriteCurrent() {
+            const video = localVideos[currentVideoIndex];
+            if (!video) return;
+            const idx = manualFavorites.indexOf(video.id);
+            if (idx > -1) {
+                manualFavorites.splice(idx, 1);
+                showToast(appSettings.language === 'en' ? 'Removed from Favorites' : 'ফেভারিট থেকে সরানো হয়েছে');
+            } else {
+                manualFavorites.push(video.id);
+                showToast(appSettings.language === 'en' ? 'Added to Favorites' : 'ফেভারিটে যুক্ত হয়েছে');
+            }
+            try { localStorage.setItem('yt_manual_favs', JSON.stringify(manualFavorites)); } catch (e) {}
+            updateFavoriteButtonState(video.id);
+            renderAllViews();
+        }
+        function updateFavoriteButtonState(videoId) {
+            const isFav = manualFavorites.includes(videoId);
+            document.getElementById('watchFavBtn').classList.toggle('fav-active', isFav);
+            document.getElementById('favBtnText').textContent = isFav ? tr('favDone') : tr('favLabel');
+        }
+
+        function renderRecommendedFeed(currentId) {
+            const container = document.getElementById('recommendedFeed');
+            const heading = document.getElementById('playlistHeading');
+            if (heading) heading.textContent = appSettings.language === 'en'
+                ? `Playlist · Up Next (${localVideos.length})`
+                : `প্লেলিস্ট · ভিডিও ও অডিও (${fmtNum(localVideos.length)})`;
+            container.innerHTML = '';
+            if (localVideos.length === 0) { container.innerHTML = `<div style="font-size:12px;color:#aaa;">${tr('noMoreFiles')}</div>`; return; }
+            localVideos.forEach(video => {
+                const stats = getVideoStats(video);
+                const isCurrent = video.id === currentId;
+                const row = document.createElement('div');
+                row.className = `compact-video-row${isCurrent ? ' active-playing' : ''}`;
+                row.onclick = () => openWatchView(video.id);
+                row.innerHTML = `
+                    <div class="compact-thumb">
+                        ${video.thumbnail ? `<img src="${video.thumbnail}" alt="">` : (video.mediaKind === 'audio' ? '<span style="font-size:18px;color:#ff4d4d;">♪</span>' : '')}
+                        <span class="duration-tag" style="bottom:4px;right:4px;font-size:10px;padding:1px 5px;">${video.duration}</span>
+                    </div>
+                    <div class="compact-meta">
+                        ${isCurrent ? `<div style="font-size:10.5px;font-weight:700;color:#ff4d4d;margin-bottom:2px;">${tr('nowPlaying')}</div>` : ''}
+                        <div class="compact-title line-clamp-2">${escapeHtml(video.title)}</div>
+                        <div class="compact-sub">★ ${stats.rating} · ${fmtNum(stats.playCount)} ${tr('viewsSuffix')}</div>
+                    </div>`;
+                container.appendChild(row);
+            });
+        }
+
+        function renderFavorites() {
+            const container = document.getElementById('favoritesVideoGrid');
+            container.innerHTML = '';
+            const favs = localVideos.filter(v => getVideoStats(v).isFav);
+            if (favs.length === 0) { container.innerHTML = `<div style="text-align:center;padding:56px 12px;font-size:12px;color:#aaa;">${tr('emptyFav')}</div>`; return; }
+            favs.forEach(video => {
+                const stats = getVideoStats(video);
+                const row = document.createElement('div');
+                row.className = 'compact-video-row';
+                row.style.borderBottom = '1px solid rgba(46,46,46,0.45)';
+                row.onclick = () => openWatchView(video.id);
+                row.innerHTML = `
+                    <div class="compact-thumb" style="width:120px;">
+                        ${video.thumbnail ? `<img src="${video.thumbnail}" alt="">` : ''}
+                        <span class="duration-tag" style="bottom:4px;right:4px;font-size:10px;padding:1px 5px;">${video.duration}</span>
+                    </div>
+                    <div class="compact-meta">
+                        <div style="font-size:10.5px;font-weight:700;color:#ff4d4d;margin-bottom:2px;">${stats.isManualFav ? tr('manualFav') : tr('autoFav')}</div>
+                        <div class="compact-title line-clamp-2">${escapeHtml(video.title)}</div>
+                        <div class="compact-sub">★ ${stats.rating} · ${fmtNum(stats.playCount)} ${tr('viewsSuffix')}</div>
+                    </div>`;
+                container.appendChild(row);
+            });
+        }
+
+        function renderLibrary() {
+            const container = document.getElementById('libraryVideoGrid');
+            const totalSize = localVideos.reduce((s, v) => s + (v.sizeBytes || 0), 0);
+            document.getElementById('librarySummaryText').textContent = appSettings.language === 'en'
+                ? `Total ${localVideos.length} file(s) (${formatBytes(totalSize)})`
+                : `মোট ${fmtNum(localVideos.length)} টি ফাইল (${formatBytes(totalSize)})`;
+
+            container.innerHTML = '';
+            if (localVideos.length === 0) { container.innerHTML = `<div style="text-align:center;padding:42px 12px;font-size:12px;color:#aaa;">${tr('emptyLib')}</div>`; return; }
+
+            localVideos.forEach(video => {
+                const stats = getVideoStats(video);
+                const catLabel = getCategoryLabelForVideo(video);
+                const row = document.createElement('div');
+                row.className = 'compact-video-row';
+                row.style.borderBottom = '1px solid rgba(46,46,46,0.45)';
+                row.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:11px;flex:1;min-width:0;" onclick="openWatchView('${video.id.replace(/'/g, "\\'")}')">
+                        <div class="compact-thumb" style="width:105px;">
+                            ${video.thumbnail ? `<img src="${video.thumbnail}" alt="">` : ''}
+                            <span class="duration-tag" style="bottom:4px;right:4px;font-size:9.5px;padding:1px 4px;">${video.duration}</span>
+                        </div>
+                        <div class="compact-meta">
+                            <div class="compact-title truncate">${escapeHtml(video.title)}</div>
+                            <div class="compact-sub">${catLabel} · ${video.size} · ★ ${stats.rating}${(video.needsRelink || video.needsPermission) ? ` · <span style="color:#38bdf8;font-weight:500;">${tr('tapToRelink')}</span>` : ''}</div>
+                        </div>
+                    </div>
+                    <button class="icon-btn" style="color:#f87171;" onclick="deleteSingleMedia('${video.id.replace(/'/g, "\\'")}')" title="Remove">✕</button>`;
+                container.appendChild(row);
+            });
+        }
+
+        async function deleteSingleMedia(id) {
+            const cur = localVideos[currentVideoIndex];
+            if (cur && cur.id === id) closeMiniPlayer();
+            const url = objectUrlMap.get(id);
+            if (url) { URL.revokeObjectURL(url); objectUrlMap.delete(id); }
+            await dbDelete(id);
+            localVideos = localVideos.filter(v => v.id !== id);
+            renderAllViews();
+            showToast(appSettings.language === 'en' ? 'Removed from list' : 'ফাইলটি তালিকা থেকে মুছে ফেলা হয়েছে');
+        }
+
+        function openSearchModal() { document.getElementById('searchModal').classList.remove('hidden'); document.getElementById('searchInput').focus(); }
+        function closeSearchModal() { document.getElementById('searchModal').classList.add('hidden'); }
+        function handleSearchInput(query) {
+            const container = document.getElementById('searchResultsContainer');
+            container.innerHTML = '';
+            const q = query.trim().toLowerCase();
+            if (!q) return;
+            const matches = localVideos.filter(v => v.title.toLowerCase().includes(q));
+            if (matches.length === 0) { container.innerHTML = `<div style="text-align:center;padding:40px 12px;font-size:12px;color:#aaa;">${tr('noResults')}</div>`; return; }
+            matches.forEach(video => {
+                const stats = getVideoStats(video);
+                const row = document.createElement('div');
+                row.className = 'compact-video-row';
+                row.style.borderBottom = '1px solid rgba(46,46,46,0.45)';
+                row.onclick = () => { closeSearchModal(); openWatchView(video.id); };
+                row.innerHTML = `
+                    <div class="compact-thumb" style="width:96px;">${video.thumbnail ? `<img src="${video.thumbnail}" alt="">` : ''}</div>
+                    <div class="compact-meta"><div class="compact-title truncate">${escapeHtml(video.title)}</div><div class="compact-sub">${video.duration} · ★ ${stats.rating}</div></div>`;
+                container.appendChild(row);
+            });
+        }
+
+        function openConfirmModal() { document.getElementById('confirmModal').classList.remove('hidden'); }
+        function closeConfirmModal() { document.getElementById('confirmModal').classList.add('hidden'); }
+        async function executeClearAllData() {
+            closeConfirmModal(); closeMiniPlayer();
+            objectUrlMap.forEach(url => URL.revokeObjectURL(url));
+            objectUrlMap.clear();
+            localVideos = []; manualFavorites = []; videoWatchStats = {};
+            await dbClear();
+            try { localStorage.removeItem('yt_manual_favs'); localStorage.removeItem('yt_watch_stats'); localStorage.removeItem('kibrea_playback_session_v1'); } catch (e) {}
+            renderAllViews();
+            showToast(appSettings.language === 'en' ? 'All data cleared' : 'সব ডেটা স্থায়ীভাবে মুছে ফেলা হয়েছে');
+        }
+
+        function escapeHtml(str) { return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function formatBytes(bytes) {
+            if (!bytes) return '0 MB';
+            const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'], i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+        function formatTime(sec) {
+            if (!sec || !isFinite(sec)) return '0:00';
+            const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60);
+            return h > 0 ? `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}` : `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+        function toBengaliDigits(num) {
+            const bn = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+            return String(num).replace(/\d/g, d => bn[d]);
+        }
+        let toastTimer = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg; toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+    </script>
+</body>
+</html>
